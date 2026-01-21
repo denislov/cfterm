@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="zh-CN" dir="ltr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>订阅中心</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Courier New", monospace;
+            background: #000;
+            color: #00ff00;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: -1;
+        }
+
+        .matrix-code-rain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .matrix-column {
+            position: absolute;
+            top: -100%;
+            color: #00ff00;
+            font-size: 14px;
+            line-height: 1.2;
+            text-shadow: 0 0 5px #00ff00;
+            animation: matrix-drop 15s linear infinite;
+        }
+
+        @keyframes matrix-drop {
+            0% {
+                top: -100%;
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 0.3;
+            }
+
+            100% {
+                top: 100vh;
+                opacity: 0;
+            }
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .title {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #00aa00;
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: rgba(0, 20, 0, 0.9);
+            border: 2px solid #00ff00;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.5), inset 0 0 20px rgba(0, 255, 0, 0.1);
+        }
+
+        .card-title {
+            font-size: 1.6rem;
+            margin-bottom: 20px;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+        }
+
+        .client-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 12px;
+            margin: 15px 0;
+        }
+
+        .client-btn {
+            background: rgba(0, 20, 0, 0.8);
+            border: 2px solid #00ff00;
+            padding: 12px;
+            color: #00ff00;
+            font-family: "Courier New", monospace;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-shadow: 0 0 5px #00ff00;
+        }
+
+        .client-btn:hover {
+            background: rgba(0, 255, 0, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px #00ff00;
+        }
+
+        .status-box {
+            padding: 15px;
+            background: rgba(0, 20, 0, 0.8);
+            border: 1px solid #00ff00;
+            margin: 10px 0;
+        }
+
+        .status-row {
+            margin: 8px 0;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        .form-input,
+        .form-select {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .form-input::placeholder {
+            color: #00aa00;
+            opacity: 0.7;
+        }
+
+        .form-hint {
+            color: #00aa00;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        .btn {
+            background: rgba(0, 255, 0, 0.15);
+            border: 2px solid #00ff00;
+            padding: 12px 24px;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            background: rgba(0, 255, 0, 0.4);
+            box-shadow: 0 0 20px #00ff00;
+        }
+
+        .btn-danger {
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 0, 0, 0.3);
+            box-shadow: 0 0 20px #ff4444;
+        }
+
+        .checkbox-group {
+            padding: 15px;
+            background: rgba(0, 20, 0, 0.6);
+            border: 1px solid #00ff00;
+        }
+
+        .checkbox-item {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .checkbox-item input {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .sub-url {
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            padding: 15px;
+            word-break: break-all;
+            display: none;
+            margin-top: 15px;
+        }
+
+        .lang-selector {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+
+        .lang-selector select {
+            background: rgba(0, 20, 0, 0.9);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 12px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+        }
+
+        .version-text {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            color: #00ff00;
+            opacity: 0.6;
+            font-size: 0.8rem;
+        }
+
+        .status-msg {
+            display: none;
+            padding: 12px;
+            margin: 15px 0;
+            border: 1px solid #00ff00;
+            background: rgba(0, 20, 0, 0.8);
+        }
+
+        .links-section {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .links-section a {
+            color: #00ff00;
+            text-decoration: none;
+            margin: 0 20px;
+            font-size: 1.1rem;
+        }
+
+        .links-section a:hover {
+            text-shadow: 0 0 10px #00ff00;
+        }
+
+        [dir="rtl"] .form-label {
+            text-align: right;
+        }
+
+        [dir="rtl"] .btn {
+            margin-left: 10px;
+            margin-right: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="matrix-bg"></div>
+    <div class="matrix-code-rain" id="matrixCodeRain"></div>
+    <div class="version-text" id="versionText"></div>
+    <div class="lang-selector">
+        <select id="languageSelector" onchange="changeLanguage(this.value)">
+            <option value="zh">🇨🇳 中文</option>
+            <option value="fa">🇮🇷 فارسی</option>
+        </select>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1 class="title" id="pageTitle"></h1>
+            <p class="subtitle" id="pageSubtitle"></p>
+        </div>
+
+        <!-- 客户端选择 -->
+        <div class="card">
+            <h2 class="card-title" id="clientTitle"></h2>
+            <div class="client-grid" id="clientGrid"></div>
+            <div class="sub-url" id="subUrl"></div>
+        </div>
+
+        <!-- 系统状态 -->
+        <div class="card">
+            <h2 class="card-title" id="statusTitle"></h2>
+            <div class="status-box" id="systemStatus">
+                <div class="status-row" id="regionStatus"></div>
+                <div class="status-row" id="geoInfo"></div>
+                <div class="status-row" id="proxyIPStatus"></div>
+                <div class="status-row" id="currentIP"></div>
+                <div class="status-row" id="echStatus"></div>
+                <div class="status-row" id="regionMatch"></div>
+            </div>
+        </div>
+
+        <!-- Token 输入 -->
+        <div class="card" id="tokenCard">
+            <h2 class="card-title" id="tokenTitle">[ 访问令牌 ]</h2>
+            <div class="form-group">
+                <label class="form-label" id="tokenLabel">访问令牌:</label>
+                <input type="password" id="tokenInput" class="form-input" placeholder="请输入你的UUID令牌">
+                <small class="form-hint" id="tokenHintText">需要有效的UUID令牌才能访问配置管理功能</small>
+            </div>
+            <button type="button" class="btn" onclick="validateAndSaveToken()" id="tokenSaveBtn">验证并保存</button>
+        </div>
+
+        <!-- 配置管理 -->
+        <div class="card" id="configCard" style="display: none;">
+            <h2 class="card-title" id="configTitle"></h2>
+            <div id="kvStatus" class="status-box"></div>
+
+            <div id="configContent" style="display: none;">
+                <!-- 地区配置 -->
+                <form id="regionForm">
+                    <div class="form-group">
+                        <label class="form-label" id="regionLabel"></label>
+                        <select id="wkRegion" class="form-select"></select>
+                        <small class="form-hint" id="wkRegionHint" style="display:none; color:#ffaa00;"></small>
+                    </div>
+                    <button type="submit" class="btn" id="saveRegionBtn"></button>
+                </form>
+
+                <!-- 协议选择 -->
+                <div class="form-group">
+                    <label class="form-label" id="protocolLabel"></label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item"><input type="checkbox" id="ev" checked><span>VLESS</span></label>
+                        <label class="checkbox-item"><input type="checkbox" id="et"><span>Trojan</span></label>
+                        <label class="checkbox-item"><input type="checkbox" id="ex"><span>xhttp</span></label>
+                        <hr style="border-color: rgba(0,255,0,0.3); margin: 15px 0;">
+                        <label class="checkbox-item"><input type="checkbox" id="ech"><span>ECH (Encrypted Client
+                                Hello)</span></label>
+                        <div class="form-group" style="margin-top: 15px;">
+                            <label class="form-label" id="trojanPwdLabel"></label>
+                            <input type="text" id="tp" class="form-input" placeholder="">
+                        </div>
+                        <button type="button" class="btn" id="saveProtocolBtn"></button>
+                    </div>
+                </div>
+
+                <!-- 基本配置 -->
+                <form id="basicConfigForm">
+                    <div class="form-group">
+                        <label class="form-label" id="customPathLabel"></label>
+                        <input type="text" id="customPath" class="form-input" placeholder="/mypath">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" id="customIPLabel"></label>
+                        <input type="text" id="customIP" class="form-input" placeholder="1.2.3.4:443">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" id="yxLabel"></label>
+                        <input type="text" id="yx" class="form-input" placeholder="1.2.3.4:443#节点名,5.6.7.8:80">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" id="yxURLLabel"></label>
+                        <input type="text" id="yxURL" class="form-input" placeholder="">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" id="socksLabel"></label>
+                        <input type="text" id="socksConfig" class="form-input" placeholder="user:pass@host:port">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" id="homepageLabel"></label>
+                        <input type="text" id="customHomepage" class="form-input" placeholder="https://example.com">
+                        <small class="form-hint" id="homepageHint"></small>
+                    </div>
+                    <button type="submit" class="btn" id="saveConfigBtn"></button>
+                </form>
+
+                <!-- 高级配置 -->
+                <h3 style="color: #00ff00; margin: 25px 0 15px;" id="advancedTitle"></h3>
+                <form id="advancedConfigForm">
+                    <div class="form-group">
+                        <label class="form-label" id="scuLabel"></label>
+                        <input type="text" id="scu" class="form-input" placeholder="https://url.v1.mk/sub">
+                    </div>
+                    <div class="checkbox-group" style="margin-bottom: 15px;">
+                        <label class="checkbox-item"><input type="checkbox" id="epd"><span id="epdLabel"></span></label>
+                        <label class="checkbox-item"><input type="checkbox" id="epi" checked><span
+                                id="epiLabel"></span></label>
+                        <label class="checkbox-item"><input type="checkbox" id="egi" checked><span
+                                id="egiLabel"></span></label>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" id="aeLabel"></label>
+                        <select id="apiEnabled" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" id="rmLabel"></label>
+                        <select id="regionMatching" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" id="dkbyLabel"></label>
+                        <select id="portControl" class="form-select"></select>
+                    </div>
+                    <button type="submit" class="btn" id="saveAdvancedBtn"></button>
+                </form>
+
+                <!-- 当前配置显示 -->
+                <div id="currentConfig" class="status-box" style="margin-top: 20px;"></div>
+                <div style="margin-top: 15px;">
+                    <button class="btn" onclick="loadCurrentConfig()" id="refreshBtn"></button>
+                    <button class="btn btn-danger" onclick="resetAllConfig()" id="resetBtn"></button>
+                </div>
+
+                <!-- 优选域名管理 -->
+                <h3 style="color: #00ff00; margin: 25px 0 15px;" id="domainsTitle">[ 优选域名管理 ]</h3>
+                <div class="form-hint" style="margin-bottom: 15px;" id="domainsHint">管理订阅中使用的优选域名列表。需先开启"允许API管理"选项。
+                </div>
+
+                <div id="domainsTableContainer" style="margin-bottom: 20px;">
+                    <table id="domainsTable" style="width: 100%; border-collapse: collapse; border: 1px solid #00ff00;">
+                        <thead>
+                            <tr style="background: rgba(0, 255, 0, 0.1);">
+                                <th style="border: 1px solid #00ff00; padding: 10px; text-align: left;" id="domainCol">
+                                    域名</th>
+                                <th style="border: 1px solid #00ff00; padding: 10px; text-align: left;" id="nameCol">名称
+                                </th>
+                                <th style="border: 1px solid #00ff00; padding: 10px; text-align: center; width: 80px;"
+                                    id="portCol">端口</th>
+                                <th style="border: 1px solid #00ff00; padding: 10px; text-align: center; width: 60px;"
+                                    id="typeCol">类型</th>
+                                <th style="border: 1px solid #00ff00; padding: 10px; text-align: center; width: 80px;"
+                                    id="actionCol">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="domainsTbody"></tbody>
+                    </table>
+                </div>
+
+                <!-- 添加新域名 -->
+                <div class="form-group"
+                    style="background: rgba(0, 20, 0, 0.6); border: 1px solid #00ff00; padding: 15px;">
+                    <label class="form-label" id="addDomainLabel">添加新域名</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <input type="text" id="newDomain" class="form-input" style="flex: 2; min-width: 200px;"
+                            placeholder="example.com">
+                        <input type="text" id="newDomainName" class="form-input" style="flex: 1; min-width: 100px;"
+                            placeholder="节点名称">
+                        <input type="number" id="newDomainPort" class="form-input" style="width: 80px;"
+                            placeholder="443" value="443">
+                        <button type="button" class="btn" onclick="addDomain()" id="addDomainBtn">添加</button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <button class="btn" onclick="loadDomains()" id="refreshDomainsBtn">刷新列表</button>
+                    <button class="btn btn-danger" onclick="clearCustomDomains()" id="clearDomainsBtn">清空自定义</button>
+                </div>
+            </div>
+            <div id="statusMessage" class="status-msg"></div>
+        </div>
+
+        <!-- 相关链接 -->
+        <div class="card">
+            <h2 class="card-title" id="linksTitle"></h2>
+            <div class="links-section">
+                <a href="https://github.com/byJoey/cfnew" target="_blank" id="githubLink"></a>
+                <a href="https://www.youtube.com/@joeyblog" target="_blank">YouTube @joeyblog</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 多语言翻译配置
+        const i18n = {
+            zh: {
+                title: '订阅中心', subtitle: '多客户端支持 • 智能优选 • 一键生成',
+                clientTitle: '[ 选择客户端 ]', statusTitle: '[ 系统状态 ]',
+                configTitle: '[ 配置管理 ]', linksTitle: '[ 相关链接 ]',
+                version: '终端 v2.9.2', githubLink: 'GitHub 项目',
+                regionLabel: '指定地区 (wk):', autoDetect: '自动检测',
+                saveRegion: '保存地区', protocolLabel: '协议选择:',
+                trojanPwdLabel: 'Trojan 密码 (可选):', saveProtocol: '保存协议',
+                customPathLabel: '自定义路径 (d):', customIPLabel: '自定义ProxyIP (p):',
+                yxLabel: '优选IP列表 (yx):', yxURLLabel: '优选IP来源URL:',
+                socksLabel: 'SOCKS5配置:', homepageLabel: '自定义首页URL:',
+                homepageHint: '设置自定义URL作为首页伪装',
+                saveConfig: '保存配置', advancedTitle: '高级控制',
+                scuLabel: '订阅转换地址:', epdLabel: '启用优选域名',
+                epiLabel: '启用优选IP', egiLabel: '启用GitHub优选',
+                aeLabel: 'API管理:', aeDefault: '默认（关闭）', aeYes: '开启',
+                rmLabel: '地区匹配:', rmDefault: '默认（启用）', rmNo: '关闭',
+                dkbyLabel: 'TLS控制:', dkbyDefault: '默认（全部）', dkbyYes: '仅TLS',
+                saveAdvanced: '保存高级配置', refresh: '刷新', reset: '重置',
+                checking: '检测中...', workerRegion: 'Worker地区: ',
+                detectionMethod: '检测方式: ', proxyIPStatus: 'ProxyIP状态: ',
+                currentIP: '当前使用IP: ', regionMatch: '地区匹配: ',
+                kvEnabled: '✅ KV存储已启用', kvDisabled: '⚠️ KV存储未配置',
+                subCopied: '订阅链接已复制', loading: '加载中...',
+                regions: { US: '🇺🇸 美国', SG: '🇸🇬 新加坡', JP: '🇯🇵 日本', KR: '🇰🇷 韩国', DE: '🇩🇪 德国', SE: '🇸🇪 瑞典', NL: '🇳🇱 荷兰', FI: '🇫🇮 芬兰', GB: '🇬🇧 英国' },
+                cloudflareDetection: 'Cloudflare检测', available: '可用', smartSelection: '智能选择中',
+                tokenLabel: '访问令牌:', tokenPlaceholder: '请输入你的UUID令牌', tokenHint: '需要有效的UUID令牌才能访问配置管理功能',
+                tokenSave: '验证并保存', tokenRequired: '请先输入访问令牌', tokenInvalid: '令牌验证失败'
+            },
+            fa: {
+                title: 'مرکز اشتراک', subtitle: 'پشتیبانی چند کلاینت • انتخاب هوشمند',
+                clientTitle: '[ انتخاب کلاینت ]', statusTitle: '[ وضعیت سیستم ]',
+                configTitle: '[ مدیریت تنظیمات ]', linksTitle: '[ لینک‌ها ]',
+                version: 'ترمینال v2.9.2', githubLink: 'پروژه GitHub',
+                regionLabel: 'تعیین منطقه:', autoDetect: 'تشخیص خودکار',
+                saveRegion: 'ذخیره', protocolLabel: 'انتخاب پروتکل:',
+                trojanPwdLabel: 'رمز Trojan:', saveProtocol: 'ذخیره پروتکل',
+                customPathLabel: 'مسیر سفارشی:', customIPLabel: 'ProxyIP سفارشی:',
+                yxLabel: 'لیست IP ترجیحی:', yxURLLabel: 'URL منبع IP:',
+                socksLabel: 'تنظیمات SOCKS5:', homepageLabel: 'URL صفحه اصلی:',
+                homepageHint: 'تنظیم URL سفارشی برای استتار',
+                saveConfig: 'ذخیره', advancedTitle: 'کنترل پیشرفته',
+                scuLabel: 'آدرس تبدیل:', epdLabel: 'دامنه ترجیحی',
+                epiLabel: 'IP ترجیحی', egiLabel: 'GitHub ترجیحی',
+                aeLabel: 'مدیریت API:', aeDefault: 'پیش‌فرض', aeYes: 'فعال',
+                rmLabel: 'تطبیق منطقه:', rmDefault: 'پیش‌فرض', rmNo: 'غیرفعال',
+                dkbyLabel: 'کنترل TLS:', dkbyDefault: 'همه', dkbyYes: 'فقط TLS',
+                saveAdvanced: 'ذخیره', refresh: 'تازه‌سازی', reset: 'بازنشانی',
+                checking: 'در حال بررسی...', workerRegion: 'منطقه: ',
+                detectionMethod: 'روش: ', proxyIPStatus: 'وضعیت ProxyIP: ',
+                currentIP: 'IP فعلی: ', regionMatch: 'تطبیق: ',
+                kvEnabled: '✅ KV فعال', kvDisabled: '⚠️ KV غیرفعال',
+                subCopied: 'کپی شد', loading: 'بارگذاری...',
+                regions: { US: '🇺🇸 آمریکا', SG: '🇸🇬 سنگاپور', JP: '🇯🇵 ژاپن', KR: '🇰🇷 کره', DE: '🇩🇪 آلمان', SE: '🇸🇪 سوئد', NL: '🇳🇱 هلند', FI: '🇫🇮 فنلاند', GB: '🇬🇧 بریتانیا' },
+                cloudflareDetection: 'تشخیص Cloudflare', available: 'در دسترس', smartSelection: 'انتخاب هوشمند',
+                tokenLabel: 'توکن دسترسی:', tokenPlaceholder: 'توکن UUID خود را وارد کنید', tokenHint: 'برای دسترسی به تنظیمات، توکن UUID معتبر لازم است',
+                tokenSave: 'تأیید', tokenRequired: 'لطفاً توکن را وارد کنید', tokenInvalid: 'توکن نامعتبر است'
+            }
+        };
+
+        const clients = [
+            { type: 'clash', name: 'CLASH', scheme: 'clash://install-config?url=' },
+            { type: 'clash', name: 'STASH', scheme: 'stash://install?url=' },
+            { type: 'surge', name: 'SURGE', scheme: 'surge:///install-config?url=' },
+            { type: 'singbox', name: 'SING-BOX', scheme: 'sing-box://install-config?url=' },
+            { type: 'loon', name: 'LOON', scheme: 'loon://install?url=' },
+            { type: 'quanx', name: 'QUANTUMULT X', scheme: 'quantumult-x://install-config?url=' },
+            { type: 'v2ray', name: 'V2RAY', scheme: '' },
+            { type: 'v2ray', name: 'Shadowrocket', scheme: 'shadowrocket://add/' }
+        ];
+
+        let currentLang = 'zh';
+        let t = i18n.zh;
+        const API_BASE = "http://localhost:8787";
+        const SUB_CONVERTER = 'https://url.v1.mk/sub';
+
+        // Token 管理
+        let AUTH_TOKEN = localStorage.getItem('authToken') || '';
+
+        // 带认证的 fetch 封装
+        async function authFetch(url, options = {}) {
+            const headers = {
+                ...options.headers,
+            };
+            if (AUTH_TOKEN) {
+                headers['X-Token'] = AUTH_TOKEN;
+            }
+            return fetch(url, { ...options, headers });
+        }
+
+        // 验证并保存 Token
+        async function validateAndSaveToken() {
+            const tokenInput = document.getElementById('tokenInput');
+            const token = tokenInput.value.trim();
+
+            if (!token) {
+                showStatus(t.tokenRequired, 'error');
+                return;
+            }
+
+            // 临时设置 token 并测试
+            AUTH_TOKEN = token;
+            try {
+                const res = await authFetch(`${API_BASE}/api/config`);
+                if (res.ok || res.status === 503) {
+                    // 503 表示 KV 未配置，但认证成功
+                    localStorage.setItem('authToken', token);
+                    showStatus('Token 验证成功', 'success');
+                    document.getElementById('tokenCard').style.display = 'none';
+                    checkKVStatus();
+                    loadDomains();
+                } else if (res.status === 401 || res.status === 403) {
+                    AUTH_TOKEN = '';
+                    showStatus(t.tokenInvalid, 'error');
+                } else {
+                    const data = await res.json();
+                    showStatus(data.error || t.tokenInvalid, 'error');
+                }
+            } catch (e) {
+                AUTH_TOKEN = '';
+                showStatus('验证失败: ' + e.message, 'error');
+            }
+        }
+
+        // 工具函数
+        function getCookie(name) {
+            const v = '; ' + document.cookie;
+            const p = v.split('; ' + name + '=');
+            return p.length === 2 ? p.pop().split(';').shift() : null;
+        }
+        function setCookie(name, value) {
+            const d = new Date(); d.setFullYear(d.getFullYear() + 1);
+            document.cookie = `${name}=${value}; path=/; expires=${d.toUTCString()}; SameSite=Lax`;
+        }
+        function detectLanguage() {
+            const saved = localStorage.getItem('preferredLanguage') || getCookie('preferredLanguage');
+            if (saved === 'fa' || saved === 'fa-IR') return 'fa';
+            if (saved === 'zh' || saved === 'zh-CN') return 'zh';
+            return navigator.language?.includes('fa') ? 'fa' : 'zh';
+        }
+        function changeLanguage(lang) {
+            localStorage.setItem('preferredLanguage', lang);
+            setCookie('preferredLanguage', lang);
+            location.reload();
+        }
+
+        // 应用语言
+        function applyLanguage(lang) {
+            currentLang = lang;
+            t = i18n[lang];
+            document.documentElement.lang = lang === 'fa' ? 'fa-IR' : 'zh-CN';
+            document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr';
+            document.title = t.title;
+
+            // 更新UI文本
+            document.getElementById('versionText').textContent = t.version;
+            document.getElementById('pageTitle').textContent = t.title;
+            document.getElementById('pageSubtitle').textContent = t.subtitle;
+            document.getElementById('clientTitle').textContent = t.clientTitle;
+            document.getElementById('statusTitle').textContent = t.statusTitle;
+            document.getElementById('configTitle').textContent = t.configTitle;
+            document.getElementById('linksTitle').textContent = t.linksTitle;
+            document.getElementById('githubLink').textContent = t.githubLink;
+            document.getElementById('regionLabel').textContent = t.regionLabel;
+            document.getElementById('saveRegionBtn').textContent = t.saveRegion;
+            document.getElementById('protocolLabel').textContent = t.protocolLabel;
+            document.getElementById('trojanPwdLabel').textContent = t.trojanPwdLabel;
+            document.getElementById('saveProtocolBtn').textContent = t.saveProtocol;
+            document.getElementById('customPathLabel').textContent = t.customPathLabel;
+            document.getElementById('customIPLabel').textContent = t.customIPLabel;
+            document.getElementById('yxLabel').textContent = t.yxLabel;
+            document.getElementById('yxURLLabel').textContent = t.yxURLLabel;
+            document.getElementById('socksLabel').textContent = t.socksLabel;
+            document.getElementById('homepageLabel').textContent = t.homepageLabel;
+            document.getElementById('homepageHint').textContent = t.homepageHint;
+            document.getElementById('saveConfigBtn').textContent = t.saveConfig;
+            document.getElementById('advancedTitle').textContent = t.advancedTitle;
+            document.getElementById('scuLabel').textContent = t.scuLabel;
+            document.getElementById('epdLabel').textContent = t.epdLabel;
+            document.getElementById('epiLabel').textContent = t.epiLabel;
+            document.getElementById('egiLabel').textContent = t.egiLabel;
+            document.getElementById('aeLabel').textContent = t.aeLabel;
+            document.getElementById('rmLabel').textContent = t.rmLabel;
+            document.getElementById('dkbyLabel').textContent = t.dkbyLabel;
+            document.getElementById('saveAdvancedBtn').textContent = t.saveAdvanced;
+            document.getElementById('refreshBtn').textContent = t.refresh;
+            document.getElementById('resetBtn').textContent = t.reset;
+            document.getElementById('languageSelector').value = lang;
+
+            // 渲染客户端按钮
+            renderClientButtons();
+            // 渲染地区选择
+            renderRegionSelect();
+            // 渲染高级选择框
+            renderAdvancedSelects();
+        }
+
+        function renderClientButtons() {
+            const grid = document.getElementById('clientGrid');
+            grid.innerHTML = clients.map(c =>
+                `<button class="client-btn" onclick="generateLink('${c.type}','${c.name}','${c.scheme}')">${c.name}</button>`
+            ).join('');
+        }
+
+        function renderRegionSelect() {
+            const sel = document.getElementById('wkRegion');
+            sel.innerHTML = `<option value="">${t.autoDetect}</option>` +
+                Object.entries(t.regions).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+        }
+
+        function renderAdvancedSelects() {
+            document.getElementById('apiEnabled').innerHTML = `<option value="">${t.aeDefault}</option><option value="yes">${t.aeYes}</option>`;
+            document.getElementById('regionMatching').innerHTML = `<option value="">${t.rmDefault}</option><option value="no">${t.rmNo}</option>`;
+            document.getElementById('portControl').innerHTML = `<option value="">${t.dkbyDefault}</option><option value="yes">${t.dkbyYes}</option>`;
+        }
+
+        // 生成订阅链接
+        function generateLink(type, name, scheme) {
+            const subUrl = location.href.replace(/\/$/, '') + '/sub';
+            let finalUrl = subUrl;
+
+            if (type !== 'v2ray') {
+                const encoded = encodeURIComponent(subUrl);
+                finalUrl = `${SUB_CONVERTER}?target=${type}&url=${encoded}&insert=false&emoji=true&list=false&expand=true&scv=false&new_name=true`;
+            }
+
+            const urlEl = document.getElementById('subUrl');
+            urlEl.textContent = finalUrl;
+            urlEl.style.display = 'block';
+
+            if (scheme) {
+                const schemeUrl = scheme + encodeURIComponent(finalUrl);
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = schemeUrl;
+                document.body.appendChild(iframe);
+                setTimeout(() => iframe.remove(), 2000);
+            }
+
+            navigator.clipboard.writeText(finalUrl).then(() => {
+                showStatus(`${name} ${t.subCopied}`, 'success');
+            });
+        }
+
+        // 状态检测
+        async function checkSystemStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/api/status`);
+                const data = await res.json();
+
+                document.getElementById('regionStatus').innerHTML = `${t.workerRegion}<span style="color:#44ff44">${t.regions[data.region] || data.region}</span>`;
+                document.getElementById('geoInfo').innerHTML = `${t.detectionMethod}<span style="color:#44ff44">${t.cloudflareDetection}</span>`;
+                document.getElementById('proxyIPStatus').innerHTML = `${t.proxyIPStatus}<span style="color:#44ff44">✅ ${t.available}</span>`;
+                document.getElementById('currentIP').innerHTML = `${t.currentIP}<span style="color:#44ff44">${t.smartSelection}</span>`;
+                document.getElementById('regionMatch').innerHTML = `${t.regionMatch}<span style="color:#44ff44">✅</span>`;
+
+                if (data.echEnabled) {
+                    document.getElementById('echStatus').innerHTML = `ECH: <span style="color:#44ff44">✅ ${t.available}</span>`;
+                } else {
+                    document.getElementById('echStatus').innerHTML = `ECH: <span style="color:#ffaa00">⚠️</span>`;
+                }
+            } catch (e) {
+                // 回退到region端点
+                try {
+                    const res = await fetch(`${API_BASE}/region`);
+                    const data = await res.json();
+                    document.getElementById('regionStatus').innerHTML = `${t.workerRegion}<span style="color:#44ff44">${t.regions[data.region] || data.region}</span>`;
+                    document.getElementById('geoInfo').innerHTML = `${t.detectionMethod}<span style="color:#44ff44">${data.detectionMethod || t.cloudflareDetection}</span>`;
+                } catch (e2) {
+                    document.getElementById('regionStatus').innerHTML = `${t.workerRegion}<span style="color:#ff4444">❌</span>`;
+                }
+            }
+        }
+
+        // KV配置检测
+        async function checkKVStatus() {
+            // 如果没有 token，显示 token 输入卡片
+            if (!AUTH_TOKEN) {
+                document.getElementById('tokenCard').style.display = 'block';
+                document.getElementById('configCard').style.display = 'none';
+                return;
+            }
+
+            try {
+                const res = await authFetch(`${API_BASE}/api/config`);
+
+                // 认证失败
+                if (res.status === 401 || res.status === 403) {
+                    AUTH_TOKEN = '';
+                    localStorage.removeItem('authToken');
+                    document.getElementById('tokenCard').style.display = 'block';
+                    document.getElementById('configCard').style.display = 'none';
+                    return;
+                }
+
+                // 隐藏 token 卡片
+                document.getElementById('tokenCard').style.display = 'none';
+
+                if (res.status === 503) {
+                    document.getElementById('kvStatus').innerHTML = `<span style="color:#ffaa00">${t.kvDisabled}</span>`;
+                    document.getElementById('configCard').style.display = 'block';
+                    return;
+                }
+                const data = await res.json();
+                if (data.kvEnabled) {
+                    document.getElementById('kvStatus').innerHTML = `<span style="color:#44ff44">${t.kvEnabled}</span>`;
+                    document.getElementById('configContent').style.display = 'block';
+                    document.getElementById('configCard').style.display = 'block';
+                    loadCurrentConfig();
+                } else {
+                    document.getElementById('kvStatus').innerHTML = `<span style="color:#ffaa00">${t.kvDisabled}</span>`;
+                    document.getElementById('configCard').style.display = 'block';
+                }
+            } catch (e) {
+                document.getElementById('kvStatus').innerHTML = `<span style="color:#ffaa00">${t.kvDisabled}</span>`;
+                document.getElementById('configCard').style.display = 'block';
+            }
+        }
+
+        // 加载当前配置
+        async function loadCurrentConfig() {
+            try {
+                const res = await authFetch(`${API_BASE}/api/config`);
+                if (!res.ok) return;
+                const cfg = await res.json();
+
+                // 填充表单
+                document.getElementById('wkRegion').value = cfg.wk || '';
+                document.getElementById('ev').checked = cfg.ev !== 'no';
+                document.getElementById('et').checked = cfg.et === 'yes';
+                document.getElementById('ex').checked = cfg.ex === 'yes';
+                document.getElementById('ech').checked = cfg.ech === 'yes';
+                document.getElementById('tp').value = cfg.tp || '';
+                document.getElementById('customPath').value = cfg.d || '';
+                document.getElementById('customIP').value = cfg.p || '';
+                document.getElementById('yx').value = cfg.yx || '';
+                document.getElementById('yxURL').value = cfg.yxURL || '';
+                document.getElementById('socksConfig').value = cfg.s || '';
+                document.getElementById('customHomepage').value = cfg.homepage || '';
+                document.getElementById('scu').value = cfg.scu || '';
+                document.getElementById('epd').checked = cfg.epd === 'yes';
+                document.getElementById('epi').checked = cfg.epi !== 'no';
+                document.getElementById('egi').checked = cfg.egi !== 'no';
+                document.getElementById('apiEnabled').value = cfg.ae || '';
+                document.getElementById('regionMatching').value = cfg.rm || '';
+                document.getElementById('portControl').value = cfg.dkby || '';
+
+                // 显示当前配置
+                const display = Object.entries(cfg).filter(([k]) => k !== 'kvEnabled').map(([k, v]) => `${k}: ${v || '(空)'}`).join('\n');
+                document.getElementById('currentConfig').textContent = display || '(无配置)';
+            } catch (e) {
+                document.getElementById('currentConfig').textContent = '加载失败: ' + e.message;
+            }
+        }
+
+        // 保存配置
+        async function saveConfig(data) {
+            try {
+                const res = await authFetch(`${API_BASE}/api/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                showStatus(result.message || '保存成功', result.success ? 'success' : 'error');
+                if (result.success) {
+                    loadCurrentConfig();
+                    setTimeout(() => location.reload(), 1500);
+                }
+            } catch (e) {
+                showStatus('保存失败: ' + e.message, 'error');
+            }
+        }
+
+        // 重置配置
+        async function resetAllConfig() {
+            if (!confirm('确定要重置所有配置吗？')) return;
+            await saveConfig({ wk: '', d: '', p: '', yx: '', yxURL: '', s: '', ae: '', rm: '', dkby: '', ev: '', et: '', ex: '', tp: '', scu: '', epd: '', epi: '', egi: '', homepage: '' });
+        }
+
+        // 显示状态消息
+        function showStatus(msg, type) {
+            const el = document.getElementById('statusMessage');
+            el.textContent = msg;
+            el.style.display = 'block';
+            el.style.color = type === 'success' ? '#00ff00' : '#ff4444';
+            el.style.borderColor = type === 'success' ? '#00ff00' : '#ff4444';
+            setTimeout(() => el.style.display = 'none', 3000);
+        }
+
+        // Matrix雨效果
+        function createMatrixRain() {
+            const container = document.getElementById('matrixCodeRain');
+            const chars = '01ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const cols = Math.floor(window.innerWidth / 20);
+            for (let i = 0; i < cols; i++) {
+                const col = document.createElement('div');
+                col.className = 'matrix-column';
+                col.style.left = (i * 20) + 'px';
+                col.style.animationDelay = (Math.random() * 15) + 's';
+                col.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                let text = '';
+                for (let j = 0; j < 30; j++) {
+                    text += chars[Math.floor(Math.random() * chars.length)] + '<br>';
+                }
+                col.innerHTML = text;
+                container.appendChild(col);
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            const lang = detectLanguage();
+            applyLanguage(lang);
+            createMatrixRain();
+            checkSystemStatus();
+            checkKVStatus();
+
+            // 绑定表单事件
+            document.getElementById('regionForm').addEventListener('submit', e => {
+                e.preventDefault();
+                saveConfig({ wk: document.getElementById('wkRegion').value });
+            });
+
+            document.getElementById('saveProtocolBtn').addEventListener('click', () => {
+                saveConfig({
+                    ev: document.getElementById('ev').checked ? 'yes' : 'no',
+                    et: document.getElementById('et').checked ? 'yes' : 'no',
+                    ex: document.getElementById('ex').checked ? 'yes' : 'no',
+                    ech: document.getElementById('ech').checked ? 'yes' : 'no',
+                    tp: document.getElementById('tp').value
+                });
+            });
+
+            document.getElementById('basicConfigForm').addEventListener('submit', e => {
+                e.preventDefault();
+                saveConfig({
+                    d: document.getElementById('customPath').value,
+                    p: document.getElementById('customIP').value,
+                    yx: document.getElementById('yx').value,
+                    yxURL: document.getElementById('yxURL').value,
+                    s: document.getElementById('socksConfig').value,
+                    homepage: document.getElementById('customHomepage').value
+                });
+            });
+
+            document.getElementById('advancedConfigForm').addEventListener('submit', e => {
+                e.preventDefault();
+                saveConfig({
+                    scu: document.getElementById('scu').value,
+                    epd: document.getElementById('epd').checked ? 'yes' : 'no',
+                    epi: document.getElementById('epi').checked ? 'yes' : 'no',
+                    egi: document.getElementById('egi').checked ? 'yes' : 'no',
+                    ae: document.getElementById('apiEnabled').value,
+                    rm: document.getElementById('regionMatching').value,
+                    dkby: document.getElementById('portControl').value
+                });
+            });
+
+            // 加载域名列表
+            loadDomains();
+        });
+
+        // ===== 域名管理功能 =====
+
+        // 加载域名列表
+        async function loadDomains() {
+            const tbody = document.getElementById('domainsTbody');
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; border: 1px solid #00ff00; color: #00aa00;">${t.loading || '加载中...'}</td></tr>`;
+
+            try {
+                const res = await authFetch(`${API_BASE}/api/domains`);
+                const data = await res.json();
+
+                if (!data.success) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; border: 1px solid #00ff00; color: #ffaa00;">${data.error || data.message || '加载失败'}</td></tr>`;
+                    return;
+                }
+
+                let html = '';
+
+                // 内置域名
+                (data.builtin || []).forEach(d => {
+                    const enabled = d.enabled !== false;
+                    const style = enabled ? '' : 'opacity: 0.5;';
+                    html += `<tr style="${style}">
+                        <td style="border: 1px solid #00ff00; padding: 8px;">${d.domain}</td>
+                        <td style="border: 1px solid #00ff00; padding: 8px;">${d.name || d.domain}</td>
+                        <td style="border: 1px solid #00ff00; padding: 8px; text-align: center;">443</td>
+                        <td style="border: 1px solid #00ff00; padding: 8px; text-align: center; color: #00aa00;">内置</td>
+                        <td style="border: 1px solid #00ff00; padding: 8px; text-align: center;">
+                            <button class="btn" style="padding: 5px 10px; margin: 0; font-size: 12px;" 
+                                onclick="toggleBuiltinDomain('${d.domain}', ${!enabled})">${enabled ? '禁用' : '启用'}</button>
+                        </td>
+                    </tr>`;
+                });
+
+                // 自定义域名
+                (data.custom || []).forEach(d => {
+                    html += `<tr>
+                        <td style="border: 1px solid #00ff00; padding: 8px;">${d.domain}</td>
+                        <td style="border: 1px solid #00ff00; padding: 8px;">${d.name || d.domain}</td>
+                        <td style="border: 1px solid #00ff00; padding: 8px; text-align: center;">${d.port || 443}</td>
+                        <td style="border: 1px solid #00ff00; padding: 8px; text-align: center; color: #44ff44;">自定义</td>
+                        <td style="border: 1px solid #00ff00; padding: 8px; text-align: center;">
+                            <button class="btn btn-danger" style="padding: 5px 10px; margin: 0; font-size: 12px;" 
+                                onclick="deleteDomain('${d.domain}')">删除</button>
+                        </td>
+                    </tr>`;
+                });
+
+                if (!html) {
+                    html = `<tr><td colspan="5" style="text-align: center; padding: 20px; border: 1px solid #00ff00; color: #00aa00;">暂无域名数据</td></tr>`;
+                }
+
+                tbody.innerHTML = html;
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; border: 1px solid #00ff00; color: #ff4444;">请求失败: ${e.message}</td></tr>`;
+            }
+        }
+
+        // 添加域名
+        async function addDomain() {
+            const domain = document.getElementById('newDomain').value.trim();
+            const name = document.getElementById('newDomainName').value.trim();
+            const port = parseInt(document.getElementById('newDomainPort').value) || 443;
+
+            if (!domain) {
+                showStatus('请输入域名', 'error');
+                return;
+            }
+
+            try {
+                const res = await authFetch(`${API_BASE}/api/domains`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain, name: name || domain, port })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showStatus('域名添加成功', 'success');
+                    document.getElementById('newDomain').value = '';
+                    document.getElementById('newDomainName').value = '';
+                    document.getElementById('newDomainPort').value = '443';
+                    loadDomains();
+                } else {
+                    showStatus(data.error || data.message || '添加失败', 'error');
+                }
+            } catch (e) {
+                showStatus('请求失败: ' + e.message, 'error');
+            }
+        }
+
+        // 删除域名
+        async function deleteDomain(domain) {
+            if (!confirm(`确定要删除域名 "${domain}" 吗？`)) return;
+
+            try {
+                const res = await authFetch(`${API_BASE}/api/domains`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showStatus('域名删除成功', 'success');
+                    loadDomains();
+                } else {
+                    showStatus(data.error || data.message || '删除失败', 'error');
+                }
+            } catch (e) {
+                showStatus('请求失败: ' + e.message, 'error');
+            }
+        }
+
+        // 启用/禁用内置域名
+        async function toggleBuiltinDomain(domain, enabled) {
+            try {
+                const res = await authFetch(`${API_BASE}/api/domains`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain, enabled })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showStatus(enabled ? '已启用' : '已禁用', 'success');
+                    loadDomains();
+                } else {
+                    showStatus(data.error || data.message || '操作失败', 'error');
+                }
+            } catch (e) {
+                showStatus('请求失败: ' + e.message, 'error');
+            }
+        }
+
+        // 清空自定义域名
+        async function clearCustomDomains() {
+            if (!confirm('确定要清空所有自定义域名吗？内置域名不会被删除。')) return;
+
+            try {
+                const res = await authFetch(`${API_BASE}/api/domains`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ all: true })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showStatus(`已清空 ${data.deletedCount || 0} 个自定义域名`, 'success');
+                    loadDomains();
+                } else {
+                    showStatus(data.error || data.message || '清空失败', 'error');
+                }
+            } catch (e) {
+                showStatus('请求失败: ' + e.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>
