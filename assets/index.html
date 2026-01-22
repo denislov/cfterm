@@ -578,7 +578,7 @@
 
         let currentLang = 'zh';
         let t = i18n.zh;
-        const API_BASE = window.location.region;
+        const API_BASE = window.location.origin;
         const SUB_CONVERTER = 'https://url.v1.mk/sub';
 
         // Token 管理
@@ -917,6 +917,17 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
+            // 检查 URL 参数中的 token（从 terminal.html 跳转过来）
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlToken = urlParams.get('token');
+            if (urlToken) {
+                AUTH_TOKEN = urlToken;
+                localStorage.setItem('authToken', urlToken);
+                // 清理 URL 中的 token 参数
+                const cleanUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+
             const lang = detectLanguage();
             applyLanguage(lang);
             createMatrixRain();

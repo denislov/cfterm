@@ -4,13 +4,15 @@ import { Utils } from "../Utils";
 export const authHandler = async (ctx: WorkerContext, next: () => Promise<Response>): Promise<Response> => {
     const path = ctx.url.pathname;
 
-
     // 从 Header 中获取 token (支持 X-Token 或 Authorization: Bearer xxx)
     const xToken = ctx.request.headers.get('X-Token');
     const authHeader = ctx.request.headers.get('Authorization');
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
-    const token = xToken || bearerToken;
+    // 也支持从 URL 查询参数获取 token（用于页面跳转场景）
+    const urlToken = ctx.url.searchParams.get('token');
+
+    const token = xToken || bearerToken || urlToken;
 
     // 验证 token
     if (token && Utils.isUuid(token) && token === ctx.uuid) {

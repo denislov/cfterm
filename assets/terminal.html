@@ -199,7 +199,7 @@
                     printResult('ACCESS GRANTED', 'success');
                     await typeWriter('凭证有效，正在跳转...');
                     setTimeout(() => {
-                        window.location.href = '/';
+                        window.location.href = `/?token=${encodeURIComponent(storedToken)}`;
                     }, 800);
                     return true;
                 } else {
@@ -262,7 +262,7 @@
                     localStorage.setItem('authToken', val);
 
                     setTimeout(() => {
-                        window.location.href = '/';
+                        window.location.href = `/?token=${encodeURIComponent(val)}`;
                     }, 1000);
                 } else {
                     printResult('ACCESS DENIED: UUID 验证失败', 'error');
