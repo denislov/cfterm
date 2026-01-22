@@ -55,8 +55,7 @@ export interface KVConfig {
      * === ECH (Encrypted Client Hello) 配置 ===
      * 用于绕过某些 SNI 阻断
      */
-    // ECH 总开关
-    enableECH?: boolean;
+
     // 简写开关 (Constants defined)
     ech?: boolean;
     // 自定义 DoH/DNS 地址 (e.g., 'https://dns.jhb.ovh/joeyblog')

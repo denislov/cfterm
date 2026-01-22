@@ -30,6 +30,9 @@ export class WorkerApp {
         // 1. 初始化上下文 (Context)
         // 这个 Context 实例将在所有中间件中传递
         const ctx = new WorkerContext(request, env, execution);
+        
+        // 2. 加载KV配置
+        await ctx.loadKVConfig();
 
         // 2. 组合所有中间件为一个执行函数
         const composedMiddleware = this.compose(this.middlewares);

@@ -153,7 +153,8 @@ export class Utils {
 	}
 	static formatIdentifier(arr: any, offset = 0) {
 		const id = (CONSTANTS.HEX_TABLE[arr[offset]] + CONSTANTS.HEX_TABLE[arr[offset + 1]] + CONSTANTS.HEX_TABLE[arr[offset + 2]] + CONSTANTS.HEX_TABLE[arr[offset + 3]] + "-" + CONSTANTS.HEX_TABLE[arr[offset + 4]] + CONSTANTS.HEX_TABLE[arr[offset + 5]] + "-" + CONSTANTS.HEX_TABLE[arr[offset + 6]] + CONSTANTS.HEX_TABLE[arr[offset + 7]] + "-" + CONSTANTS.HEX_TABLE[arr[offset + 8]] + CONSTANTS.HEX_TABLE[arr[offset + 9]] + "-" + CONSTANTS.HEX_TABLE[arr[offset + 10]] + CONSTANTS.HEX_TABLE[arr[offset + 11]] + CONSTANTS.HEX_TABLE[arr[offset + 12]] + CONSTANTS.HEX_TABLE[arr[offset + 13]] + CONSTANTS.HEX_TABLE[arr[offset + 14]] + CONSTANTS.HEX_TABLE[arr[offset + 15]]).toLowerCase();
-		if (Utils.isUuid(id)) throw new TypeError(ERRORS.E_INVALID_ID_STR);
+		// 修复：应该是如果不是有效UUID才抛出错误
+		if (!Utils.isUuid(id)) throw new TypeError(ERRORS.E_INVALID_ID_STR);
 		return id;
 	}
 	static getSmartRegionSelection(workerRegion: string, availableIPs: {

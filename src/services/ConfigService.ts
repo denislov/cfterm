@@ -1,4 +1,4 @@
-import { CF_BEST_DOMAINS } from "../core/Constants";
+import { CF_BEST_DOMAINS, CONSTANTS } from "../core/Constants";
 import { WorkerContext } from "../core/Context";
 import { DomainRecord, DomainStorage, KVConfig } from "../types";
 import { Utils } from "../Utils";
@@ -157,7 +157,7 @@ export class ConfigService {
         const method = this.ctx.request.method.toUpperCase();
         if (method === 'GET') {
             const config = await this.getKVConfig();
-            return Utils.jsonResponse({ region: this.ctx.region, echEnabled: config.enableECH });
+            return Utils.jsonResponse({ region: this.ctx.region, echEnabled: config.ech });
         }
         return Utils.errorResponse('Unsupported method', 405);
     }
@@ -191,7 +191,11 @@ export class ConfigService {
         }
         try {
             const kvData = await this.ctx.kv!.get(this.KV_KEY_DOMAINs);
-            return kvData ? JSON.parse(kvData) as DomainStorage : { builtin: [], custom: [] };
+            return kvData ? JSON.parse(kvData) as DomainStorage : { builtin: CF_BEST_DOMAINS.map(
+                item => (
+                    { domain: item.domain, name: item.name, enabled: true, type: 'builtin' }
+                )
+            ), custom: [] };
         } catch (error) {
             console.error('Error fetching domain storage from KV:', error);
         }

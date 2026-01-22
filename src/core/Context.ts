@@ -39,7 +39,10 @@ export class WorkerContext {
 
 		try {
 			const configData = await this.kv.get('c');
-			if (!configData) return;
+			if (!configData) {
+				this.kv.put('c', JSON.stringify(CONSTANTS.KV_CONFIG_DEFAULTS));
+				return;
+			};
 
 			const configJson = JSON.parse(configData);
 

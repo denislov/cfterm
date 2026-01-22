@@ -33,7 +33,6 @@ const CONSTANTS = {
 		ex: true,
 		ech: true,
 		ae: true,
-		enableECH: false,
 		enableSocksDowngrade: true,
 		isSocksEnabled: false
 	} as KVConfig,

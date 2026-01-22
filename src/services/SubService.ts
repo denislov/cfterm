@@ -35,7 +35,7 @@ export class SubService {
         };
 
         // 添加ECH状态到响应头
-        if (this.ctx.kvConfig?.enableECH) {
+        if (this.ctx.kvConfig?.ech) {
             responseHeaders['X-ECH-Status'] = 'ENABLED';
             if (this.ctx.kvConfig.echConfig) {
                 responseHeaders['X-ECH-Config-Length'] = String(this.ctx.kvConfig.echConfig.length);
@@ -55,7 +55,7 @@ export class SubService {
 
         // 如果启用了ECH，使用自定义值
         let echConfig: string | null = null;
-        if (kvConfig?.enableECH) {
+        if (kvConfig?.ech) {
             const dnsServer = kvConfig.customDNS || 'https://dns.jhb.ovh/joeyblog';
             const echDomain = kvConfig.customECHDomain || 'cloudflare-ech.com';
             echConfig = `${echDomain}+${dnsServer}`;
@@ -119,14 +119,14 @@ export class SubService {
                         encryption: 'none',
                         security: 'tls',
                         sni: workerDomain,
-                        fp: this.ctx.kvConfig?.enableECH ? 'chrome' : 'randomized',
+                        fp: this.ctx.kvConfig?.ech ? 'chrome' : 'randomized',
                         type: 'ws',
                         host: workerDomain,
                         path: wsPath
                     });
 
                     // 如果启用了ECH，添加ech参数（ECH需要伪装成Chrome浏览器）
-                    if (this.ctx.kvConfig?.enableECH) {
+                    if (this.ctx.kvConfig?.ech) {
                         const dnsServer = this.ctx.kvConfig.customDNS || 'https://dns.jhb.ovh/joeyblog';
                         const echDomain = this.ctx.kvConfig.customECHDomain || 'cloudflare-ech.com';
                         wsParams.set('alpn', 'h3,h2,http/1.1');

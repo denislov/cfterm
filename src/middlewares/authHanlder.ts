@@ -4,6 +4,11 @@ import { Utils } from "../Utils";
 export const authHandler = async (ctx: WorkerContext, next: () => Promise<Response>): Promise<Response> => {
     const path = ctx.url.pathname;
 
+    // WebSocket连接不需要认证，直接通过
+    if (ctx.request.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
+        return next();
+    }
+
     // 从 Header 中获取 token (支持 X-Token 或 Authorization: Bearer xxx)
     const xToken = ctx.request.headers.get('X-Token');
     const authHeader = ctx.request.headers.get('Authorization');
