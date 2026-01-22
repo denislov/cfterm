@@ -2,6 +2,7 @@ import { CONSTANTS } from "../core/Constants";
 import { WorkerContext } from "../core/Context";
 import { ProxyService } from "../services/ProxyService";
 import { SubService } from "../services/SubService";
+import { Utils } from "../Utils";
 import { ApiHandler } from "./apiHandler";
 
 export const router = async (ctx: WorkerContext, next: Function) => {
@@ -28,8 +29,14 @@ export const router = async (ctx: WorkerContext, next: Function) => {
 
     // 4. 默认html响应
     if (path === '/') {
+        let redirectHtml = ''
+        if (ctx.isAuth) {
+            redirectHtml = CONSTANTS.INDEX_HTML_URL;
+        } else {
+            redirectHtml = CONSTANTS.TERM_HTML_URL;
+        }
         try {
-            const response = await fetch(CONSTANTS.SUBSCRIPTION_HTML_URL, {
+            const response = await fetch(redirectHtml, {
                 headers: { 'User-Agent': 'Cloudflare-Worker/1.0' },
                 cf: { cacheTtl: CONSTANTS.HTML_CACHE_TTL, cacheEverything: true }
             });
@@ -46,15 +53,12 @@ export const router = async (ctx: WorkerContext, next: Function) => {
             }
             throw new Error(`GitHub返回状态码: ${response.status}`);
         } catch (e) {
-            return new Response(JSON.stringify({
+            return Utils.jsonResponse({
                 error: 'HTML页面加载失败',
                 message: (e as Error).message,
                 hint: '请检查GitHub仓库配置是否正确',
-                githubUrl: CONSTANTS.SUBSCRIPTION_HTML_URL
-            }), {
-                status: 503,
-                headers: { 'Content-Type': 'application/json; charset=utf-8' }
-            });
+                githubUrl: redirectHtml
+            }, 503);
         }
     }
 }

@@ -12,6 +12,9 @@ export class ApiHandler {
         if (path === '/api/domains') {
             return await service.handleDomainsRoute();
         }
+        if (path === '/api/status') {
+            return await service.handleStatusRoute();
+        }
 
         return new Response('API 路径未找到', { status: 404 });
     }

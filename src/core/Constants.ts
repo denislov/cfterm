@@ -1,3 +1,5 @@
+import { KVConfig } from "../types";
+
 const CONSTANTS = {
 	DEFAULT_UUID: '351c9981-04b6-4103-aa4b-864aa9c91469',
 	// 优选 IP API 地址
@@ -14,7 +16,8 @@ const CONSTANTS = {
 	},
 	// HTML缓存TTL（秒）
 	HTML_CACHE_TTL: 3600,
-	SUBSCRIPTION_HTML_URL: 'https://raw.githubusercontent.com/denislov/cfnew/main/subscription.html',
+	INDEX_HTML_URL: 'https://raw.githubusercontent.com/denislov/cfnew/main/assets/index.html',
+	TERM_HTML_URL: 'https://raw.githubusercontent.com/denislov/cfnew/main/assets/terminal.html',
 	KV_CONFIG_DEFAULTS: {
 		epd: true,
 		epi: false,
@@ -30,10 +33,10 @@ const CONSTANTS = {
 		ex: true,
 		ech: true,
 		ae: true,
-		enableECH: true,
-		enableSocksDowngrade: false,
+		enableECH: false,
+		enableSocksDowngrade: true,
 		isSocksEnabled: false
-	} as const,
+	} as KVConfig,
 	HEX_TABLE: Array.from({ length: 256 }, (v, i) => (i + 256).toString(16).slice(1)),
 };
 

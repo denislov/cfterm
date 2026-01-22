@@ -11,15 +11,17 @@
 		"enabled": true
 	},
 	"vars": {
-		"u":"02e173c3-5c0e-44a6-8a67-81b94a17e935",
+		// 设置你自己的uuid
+		"u": "02e173d3-5c0e-44a6-8a67-81b94a17e935",
 		"DEBUG_MODE": "false"
 	},
 	"kv_namespaces": [
 		{
 			"binding": "C",
-			"id": "bc4cc21826f6427997df4b396a6a680a"
+			// 绑定你自己的kv
+			"id": "bc4cs21826f6427997df4b396a6a680a"
 		}
-  	]
+	]
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement

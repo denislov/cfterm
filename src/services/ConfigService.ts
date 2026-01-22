@@ -152,6 +152,15 @@ export class ConfigService {
 
         return Utils.errorResponse('Unsupported method', 405);
     }
+    async handleStatusRoute(): Promise<Response> {
+        if (!this.checkKV()) return this.kvMissingResponse();
+        const method = this.ctx.request.method.toUpperCase();
+        if (method === 'GET') {
+            const config = await this.getKVConfig();
+            return Utils.jsonResponse({ region: this.ctx.region, echEnabled: config.enableECH });
+        }
+        return Utils.errorResponse('Unsupported method', 405);
+    }
     private checkKV() {
         return this.ctx.kv !== null;
     }

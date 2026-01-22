@@ -11,6 +11,7 @@ export class WorkerContext {
 	readonly kv: KVNamespace | null;
 	featureFlags: Record<string, boolean>;
 	enableRegionMatching: boolean = true;
+	isAuth: boolean = false;
 	region: string;
 	kvConfig: KVConfig;
 	socksConfig?: SSConfig;
