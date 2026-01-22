@@ -135,7 +135,11 @@
     </div>
 
     <script>
-        // 模拟打字效果
+        // 配置
+        const API_BASE = window.location.origin;
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+        // 模拟打字效果消息
         const messages = [
             "正在初始化 CF-TERM 连接...",
             "加载核心模块... 完成",
@@ -146,11 +150,6 @@
         const outputDiv = document.getElementById('output');
         const inputLine = document.getElementById('input-line');
         const inputField = document.getElementById('cmd-input');
-
-        // 默认 UUID (参考自 Constants.ts)
-        const DEFAULT_UUID = '351c9981-04b6-4103-aa4b-864aa9c91469';
-        // UUID 正则
-        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
         // 隐藏输入行直到初始化完成
         inputLine.style.opacity = '0';
@@ -165,20 +164,63 @@
             return new Promise(r => setTimeout(r, 300));
         }
 
-        async function initTerminal() {
-            for (const msg of messages) {
-                await typeWriter(msg);
-            }
-            inputLine.style.opacity = '1';
-            inputField.focus();
-        }
-
         function printResult(text, type) {
             const p = document.createElement('div');
             p.textContent = text;
             p.className = type === 'success' ? 'access-granted' : 'access-denied';
             outputDiv.appendChild(p);
             window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        // 后端验证 Token
+        async function verifyToken(token) {
+            try {
+                const res = await fetch(`${API_BASE}/api/config`, {
+                    method: 'GET',
+                    headers: { 'X-Token': token }
+                });
+                // 200 或 503(KV未配置但认证成功) 都算验证通过
+                return res.ok || res.status === 503;
+            } catch (e) {
+                console.error('Token verification error:', e);
+                return false;
+            }
+        }
+
+        // 检查已存储的 Token
+        async function checkExistingToken() {
+            const storedToken = localStorage.getItem('authToken');
+            if (storedToken && UUID_REGEX.test(storedToken)) {
+                await typeWriter("检测到已存储的访问凭证...");
+                await typeWriter("正在验证有效性...");
+
+                const isValid = await verifyToken(storedToken);
+                if (isValid) {
+                    printResult('ACCESS GRANTED', 'success');
+                    await typeWriter('凭证有效，正在跳转...');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 800);
+                    return true;
+                } else {
+                    printResult('凭证已失效，请重新输入', 'error');
+                    localStorage.removeItem('authToken');
+                }
+            }
+            return false;
+        }
+
+        async function initTerminal() {
+            // 先检查是否有有效的已存储 token
+            const hasValidToken = await checkExistingToken();
+            if (hasValidToken) return;
+
+            // 显示初始化消息
+            for (const msg of messages) {
+                await typeWriter(msg);
+            }
+            inputLine.style.opacity = '1';
+            inputField.focus();
         }
 
         inputField.addEventListener('keydown', async function (e) {
@@ -200,19 +242,31 @@
                     return;
                 }
 
-                if (UUID_REGEX.test(val)) {
+                // 格式验证
+                if (!UUID_REGEX.test(val)) {
+                    printResult('ACCESS DENIED: 无效的 UUID 格式', 'error');
+                    inputLine.classList.remove('hidden');
+                    this.focus();
+                    return;
+                }
+
+                // 后端验证
+                await typeWriter('正在验证身份凭证...');
+                const isValid = await verifyToken(val);
+
+                if (isValid) {
                     printResult('ACCESS GRANTED', 'success');
-                    await typeWriter('正在验证身份凭证...');
-                    await typeWriter('跳转至主控制台...');
+                    await typeWriter('验证成功，跳转至主控制台...');
 
                     // 保存 UUID 到本地存储
                     localStorage.setItem('authToken', val);
 
                     setTimeout(() => {
-                        window.location.href = 'home.html';
+                        window.location.href = '/';
                     }, 1000);
                 } else {
-                    printResult('ACCESS DENIED: 无效的 UUID 格式', 'error');
+                    printResult('ACCESS DENIED: UUID 验证失败', 'error');
+                    await typeWriter('请检查 UUID 是否正确');
                     inputLine.classList.remove('hidden');
                     this.focus();
                 }

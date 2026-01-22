@@ -16,8 +16,8 @@ const CONSTANTS = {
 	},
 	// HTML缓存TTL（秒）
 	HTML_CACHE_TTL: 3600,
-	INDEX_HTML_URL: 'https://raw.githubusercontent.com/denislov/cfnew/main/assets/index.html',
-	TERM_HTML_URL: 'https://raw.githubusercontent.com/denislov/cfnew/main/assets/terminal.html',
+	INDEX_HTML_URL: 'https://raw.githubusercontent.com/denislov/cfterm/refs/heads/master/assets/index.html',
+	TERM_HTML_URL: 'https://raw.githubusercontent.com/denislov/cfterm/refs/heads/master/assets/terminal.html',
 	KV_CONFIG_DEFAULTS: {
 		epd: true,
 		epi: false,
