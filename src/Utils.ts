@@ -91,7 +91,30 @@ export class Utils {
 			throw e;
 		}
 	}
-
+	static parseAddressAndPort(input:string) {
+        if (input.includes('[') && input.includes(']')) {
+            const match = input.match(/^\[([^\]]+)\](?::(\d+))?$/);
+            if (match) {
+                return {
+                    address: match[1],
+                    port: match[2] ? parseInt(match[2], 10) : null
+                };
+            }
+        }
+        
+        const lastColonIndex = input.lastIndexOf(':');
+        if (lastColonIndex > 0) {
+            const address = input.substring(0, lastColonIndex);
+            const portStr = input.substring(lastColonIndex + 1);
+            const port = parseInt(portStr, 10);
+            
+            if (!isNaN(port) && port > 0 && port <= 65535) {
+                return { address, port };
+            }
+        }
+        
+        return { address: input, port: null };
+    }
 	// ==========================================
 	// 3. 转换与格式化
 	// ==========================================
