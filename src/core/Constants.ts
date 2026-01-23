@@ -30,7 +30,7 @@ const CONSTANTS = {
 		ispTelecom: true,
 		ev: true,
 		et: false,
-		ex: true,
+		ex: false,
 		ech: true,
 		ae: true,
 		enableSocksDowngrade: true,

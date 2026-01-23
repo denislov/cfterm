@@ -8,13 +8,19 @@ export interface DomainItem {
     domain: string;
     port?: number;
 }
+
 export interface NodeInfo {
     ip: string;
     port: number;
     name: string;
-    type: 'vless' | 'trojan' | 'xhttp';
+    type: string;
     region?: string;
+    user?: string;
+    wsParams?: URLSearchParams;
 }
+// links.push(`${proto}://${user}@${item.ip}:${port}?${wsParams.toString()}#${wsNodeName}`);
+  
+
 export interface ProtocolHeader {
     hasError: boolean;
     message?: string;

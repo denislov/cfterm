@@ -24,7 +24,7 @@ export class SubService {
             subscriptionContent = this._toClashConfig(nodes);
             contentType = 'text/yaml; charset=utf-8';
         } else {
-            subscriptionContent = nodes.join('\n');
+            subscriptionContent = this._toBase64(nodes);
         }
 
         const responseHeaders = {
@@ -46,11 +46,18 @@ export class SubService {
             headers: responseHeaders,
         });
     }
+    private _toBase64(nodes: NodeInfo[]): string {
+        const links:string[] = [];
+        nodes.forEach((node)=>{
+            links.push(`${node.type}://${node.user}@${node.ip}:${node.port}?${node.wsParams?.toString()}#${node.name}`);
+        })
+        return links.join('\n');
+    }
 
 
-    async _collectNodes(): Promise<string[]> {
+    async _collectNodes(): Promise<NodeInfo[]> {
         const kvConfig = this.ctx.kvConfig;
-        const finalLinks = [];
+        const finalLinks:NodeInfo[] = [];
         const workerDomain = this.ctx.url.hostname;
 
         // 如果启用了ECH，使用自定义值
@@ -87,8 +94,13 @@ export class SubService {
         if (finalLinks.length === 0) {
             const errorRemark = "所有节点获取失败";
             const proto = atob('dmxlc3M=');
-            const errorLink = `${proto}://00000000-0000-0000-0000-000000000000@127.0.0.1:80?encryption=none&security=none&type=ws&host=error.com&path=%2F#${encodeURIComponent(errorRemark)}`;
-            finalLinks.push(errorLink);
+            finalLinks.push({
+                        type: proto,
+                        user: "user",
+                        ip: "ip",
+                        port: 0,
+                        name: errorRemark,
+                    });
         }
         return finalLinks; // 返回节点数组
     }
@@ -97,7 +109,7 @@ export class SubService {
         // CF_HTTPS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
         const defaultHttpsPorts = [443];
 
-        const links: string[] = [];
+        const links: NodeInfo[] = [];
         const wsPath = '/?ed=2048';
         const proto = atob('dmxlc3M=');
 
@@ -113,7 +125,6 @@ export class SubService {
 
             portsToGenerate.forEach(({ port, tls }) => {
                 if (tls) {
-
                     const wsNodeName = `${nodeNameBase}-${port}-WS-TLS`;
                     const wsParams = new URLSearchParams({
                         encryption: 'none',
@@ -132,8 +143,14 @@ export class SubService {
                         wsParams.set('alpn', 'h3,h2,http/1.1');
                         wsParams.set('ech', `${echDomain}+${dnsServer}`);
                     }
-
-                    links.push(`${proto}://${user}@${item.ip}:${port}?${wsParams.toString()}#${wsNodeName}`);
+                    links.push({
+                        type: proto,
+                        user: user,
+                        ip: item.ip,
+                        port: port,
+                        wsParams: wsParams,
+                        name:wsNodeName,
+                    })
                 } else {
 
                     const wsNodeName = `${nodeNameBase}-${port}-WS`;
@@ -144,14 +161,61 @@ export class SubService {
                         host: workerDomain,
                         path: wsPath
                     });
-                    links.push(`${proto}://${user}@${item.ip}:${port}?${wsParams.toString()}#${wsNodeName}`);
+                    links.push({
+                        type: proto,
+                        user: user,
+                        ip: item.ip,
+                        port: port,
+                        wsParams: wsParams,
+                        name:wsNodeName,
+                    })
                 }
             });
         });
         return links;
     }
-    _toClashConfig(nodes: string[]) {
+    _toClashConfig(nodes: NodeInfo[]) {
         // 生成 YAML
-        return "# Clash 配置示例\n" + nodes.map((node, index) => `- name: Node${index + 1}\n  type: vless\n  server: ${node}\n  port: 443\n  uuid: ${this.ctx.uuid}\n  tls: true\n`).join('\n');
+        let text = `port: 7890
+    socks-port: 7891
+    allow-lan: true
+    mode: rule
+    log-level: warning
+    global-client-fingerprint: firefox
+    external-controller: :9090
+    dns:
+    enable: true
+    ipv6: true
+    enhanced-mode: fake-ip
+    nameserver: [ "quic://223.5.5.5" ]
+    fake-ip-filter: [ "rule-set:fake-ip-filter" ]
+    rule-providers:
+    fake-ip-filter:
+        type: http
+        behavior: domain
+        format: text
+        interval: 86400
+        url: https://fastly.jsdelivr.net/gh/juewuy/ShellCrash@dev/public/fake_ip_filter.list
+    rules:
+    - DOMAIN-SUFFIX,services.googleapis.cn,节点选择
+    - DOMAIN-SUFFIX,xn--ngstr-ira8j.com,节点选择
+    - DOMAIN-SUFFIX,services.googleapis.com,节点选择
+    - GEOSITE,microsoft@cn,DIRECT
+    - GEOSITE,apple,DIRECT
+    - GEOSITE,category-games@cn,DIRECT
+    - GEOSITE,cn,DIRECT
+    - GEOIP,cn,DIRECT
+    - GEOSITE,private,DIRECT
+    - GEOIP,private,DIRECT
+    - MATCH,节点选择
+    proxy-groups:
+    - { name: 节点选择, type: select, include-all: true, exclude-type: direct, proxies: [ 自动优选 ] }
+    - { name: 自动优选, type: url-test, include-all: true, exclude-type: direct }
+    proxies:`;
+            nodes.forEach((node)=> {
+                text += `
+    - { name: ${node.name}, server: ${node.ip}, port: ${node.port}, client-fingerprint: firefox, type: ${node.type}, UUID: ${node.user}, tls: true, servername: ${node.wsParams?.get("host")}, network: ${node.wsParams?.get("type")}, ws-opts: { path: "${node.wsParams?.get('path')}", headers: { Host: ${node.wsParams?.get('host')} } } }`;
+            })
+        return text;
     }
 }

@@ -41,9 +41,9 @@ export class ProxyService {
         let vlessHeader: VlessHeader | null = null;
         let remoteSocket: Socket | null = null;
         // 1.创建WebSocket的readable
-        const readable = this.makeReadableStream(serverSock, earlyDataHeader);
-        const reader = readable.getReader()
+        const readable = this.makeReadableStream(serverSock,earlyDataHeader)
         // 解析vless数据头
+        const reader = readable.getReader()
         while (true) {
             if (buffer.length >= 24) {
                 const vlessResult = VlessParser.parseHeader(buffer.buffer, this.ctx.uuid)
@@ -62,14 +62,20 @@ export class ProxyService {
                 buffer = this.mergeUint8(buffer, chunkU8);
             }
         }
+        reader.releaseLock()
+
         // 解析成功，提取后面的数据
         const payload = buffer.subarray(vlessHeader!.rawIndex!)
         // 创建WebSocket的writable
         const respHeader = new Uint8Array([vlessHeader.version![0], 0]);
         // UDP 数据
         if (vlessHeader.isUDP) {
-            await this.forwardUDP(payload, serverSock, respHeader);
-            return;
+            console.info('isDNSQuery: ',vlessHeader?.isUDP)
+            if (vlessHeader.port !== 53)
+                throw new Error(ERRORS.E_UDP_DNS_ONLY);
+            await this.handleUDP(payload, serverSock, respHeader);
+        } else {
+            serverSock.send(respHeader);
         }
 
         // 2.获取目标机或者是ProxyIP的 TCP Socket
@@ -82,26 +88,69 @@ export class ProxyService {
         }
 
         // 3.两者连接
-        const writable = this.makeWritableStream(serverSock, respHeader)
-        reader.releaseLock()
+        const closeSocket = () => { if (!earlyDataHeader) { remoteSocket?.close(), serverSock?.close() } };
 
-        await Promise.all([
-            readable.pipeTo(remoteSocket.writable).catch((e) => {
-                // 一侧中断时，确保另一侧也能收敛
-                try { remoteSocket?.close?.(); } catch { }
-                throw e;
-            }),
-            remoteSocket.readable.pipeTo(writable).catch((e) => {
-                try { Utils.closeSocketQuietly(serverSock); } catch { }
-                throw e;
-            }),
-        ]);
+
+        // WS -> TCP：每个 chunk 都写进去（包括第一次）
+        Promise.all([readable.pipeTo(new WritableStream({
+            write: async (chunk: any) => {
+                const tcpWriter = remoteSocket.writable.getWriter();
+                const u8 = await Utils.toU8(chunk);
+                if (vlessHeader.isUDP) {
+                    console.info('isDNSQuery: ',vlessHeader?.isUDP)
+                    return this.handleUDP(u8, serverSock, null)
+                }
+                await tcpWriter.write(u8);
+                tcpWriter.releaseLock()
+            }
+        })), this.manualPipe(remoteSocket.readable, serverSock)]).catch(() => { closeSocket();console.info("hello"); }).finally(() => { closeSocket();console.info("world"); });
+    }
+    bufferSize = 640 * 1024;
+    safeBufferSize = this.bufferSize - 4096;
+    flushTime = 2;
+    async manualPipe(readable: ReadableStream, writable: WebSocket) {
+        let buffer = new Uint8Array(this.bufferSize);
+        let offset = 0;
+        let timerId: number | null = null;
+        let resume: (() => void) | null = null;
+        const flushBuffer = () => {
+            offset > 0 && (writable.send(buffer.slice(0, offset)), offset = 0);
+            timerId && (clearTimeout(timerId), timerId = null), resume?.(), resume = null;
+        };
+        const reader = readable.getReader();
+        try {
+            while (true) {
+                const { done, value: chunk } = await reader.read();
+                if (done) break;
+                if (chunk.length < 4096) {
+                    flushBuffer();
+                    writable.send(chunk);
+                } else {
+                    buffer.set(chunk, offset);
+                    offset += chunk.length;
+                    timerId || (timerId = setTimeout(flushBuffer, this.flushTime));
+                    if (offset > this.safeBufferSize) await new Promise<void>(resolve => resume = resolve);
+                }
+            }
+        } finally { flushBuffer(), reader.releaseLock() }
     }
 
-
+    makeReadableStream(socket: WebSocket, earlyDataHeader: string) {
+        let cancelled = false;
+        console.info("===make:", socket)
+        return new ReadableStream({
+            start(controller) {
+                socket.addEventListener('message', (event) => { if (!cancelled) controller.enqueue(event.data); });
+                socket.addEventListener('close', () => { if (!cancelled) { controller?.close(); } });
+                socket.addEventListener('error', (err) => {controller.error(err)});
+                const { earlyData, error } = Utils.base64ToArray(earlyDataHeader);
+                if (error) controller.error(error); else if (earlyData) controller.enqueue(earlyData);
+            },
+            cancel() { cancelled = true; Utils.closeSocketQuietly(socket); }
+        });
+    }
     private async connectTarget(addressType: ADDRESS_TYPE, hostname: string, port: number) {
         const tryConnect = async (h: string, p: number, useSocks: boolean) => {
-            console.info(`connectTarget tryConnect args: \nhost: ${h} \nport: ${p} \nuseSocks: ${useSocks}`)
             if (useSocks) {
                 return await this.establishSocksConnection(addressType, h, p);
             }
@@ -130,75 +179,7 @@ export class ProxyService {
         return await tryConnect(backupHost, backupPort, fallbackUseSocks)
     }
 
-    private makeWritableStream(serverSock: WebSocket, headerData: Uint8Array<ArrayBuffer>, retryFunc: Function | null = null) {
-        let header: Uint8Array<ArrayBuffer> | null = headerData, hasData = false;
-
-        return new WritableStream({
-            async write(chunk, controller) {
-                hasData = true;
-                if (serverSock.readyState !== 1) controller.error(ERRORS.E_WS_NOT_OPEN);
-                if (header) { serverSock.send(await new Blob([header, chunk]).arrayBuffer()); header = null; }
-                else { serverSock.send(chunk); }
-            },
-            abort(reason) { },
-        })
-    }
-
-    makeReadableStream(socket: WebSocket, earlyDataHeader: string) {
-        let cancelled = false;
-        let closed = false;
-
-        const safeClose = (controller: ReadableStreamDefaultController) => {
-            if (closed) return;
-            closed = true;
-            try { controller.close(); } catch { }
-            try { Utils.closeSocketQuietly(socket); } catch { }
-        };
-
-        const safeError = (controller: ReadableStreamDefaultController, err: any) => {
-            if (closed) return;
-            // 这类错误在延迟测试里很常见：对端断开/网络丢失
-            const msg = err?.message || String(err);
-            if (msg.includes("Network connection lost") || msg.includes("socket") || msg.includes("closed")) {
-                safeClose(controller);
-                return;
-            }
-            closed = true;
-            try { controller.error(err); } catch { }
-            try { Utils.closeSocketQuietly(socket); } catch { }
-        };
-
-        return new ReadableStream({
-            start(controller) {
-                socket.addEventListener("message", (event) => {
-                    if (cancelled || closed) return;
-                    try { controller.enqueue(event.data); } catch { }
-                });
-
-                socket.addEventListener("close", () => {
-                    if (cancelled || closed) return;
-                    safeClose(controller);
-                });
-
-                socket.addEventListener("error", (err) => {
-                    if (cancelled || closed) return;
-                    safeError(controller, err);
-                });
-
-                const { earlyData, error } = Utils.base64ToArray(earlyDataHeader);
-                if (error) safeError(controller, error);
-                else if (earlyData) {
-                    try { controller.enqueue(earlyData); } catch { }
-                }
-            },
-            cancel() {
-                cancelled = true;
-                try { Utils.closeSocketQuietly(socket); } catch { }
-            }
-        });
-    }
-
-    async forwardUDP(udpChunk: any, webSocket: WebSocket, respHeader: Uint8Array<ArrayBuffer> | null) {
+    async handleUDP(udpChunk: any, webSocket: WebSocket, respHeader: Uint8Array<ArrayBuffer> | null) {
         try {
             const tcpSocket = connect({ hostname: '8.8.4.4', port: 53 });
             let header = respHeader;
