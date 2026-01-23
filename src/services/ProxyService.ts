@@ -3,6 +3,7 @@ import { BACKUP_IPS, ERRORS } from "../core/Constants";
 import { WorkerContext } from "../core/Context";
 import { ADDRESS_TYPE } from "../types";
 import { Utils } from "../Utils";
+import { VlessHeader, VlessParser } from "../protocols/VlessParser";
 
 export class ProxyService {
     private ctx: WorkerContext;
@@ -12,7 +13,6 @@ export class ProxyService {
     }
 
     async handleUpgrade() {
-        console.info("开始处理 ws ")
         // 🛑 FIX 1: 安全获取 WebSocket 对象
         const wsPair = new WebSocketPair();
         const clientSock = wsPair[0];
@@ -20,185 +20,185 @@ export class ProxyService {
 
         serverSock.accept();
 
-        let remoteConnWrapper: { socket: Socket | null } = { socket: null };
-        let isDnsQuery = false;
-        let protocolType: string | null = null;
+        const earlyDataHeader = this.ctx.request.headers.get(atob('c2VjLXdlYnNvY2tldC1wcm90b2NvbA==')) || '';
 
-        const earlyData = this.ctx.request.headers.get(atob('c2VjLXdlYnNvY2tldC1wcm90b2NvbA==')) || '';
-        const readable = this.makeReadableStream(serverSock, earlyData);
-
-        readable.pipeTo(new WritableStream({
-            write: async (chunk) => {
-                if (isDnsQuery) {
-                    return await this.forwardUDP(chunk, serverSock, null);
-                }
-                if (remoteConnWrapper.socket) {
-                    const writer = remoteConnWrapper.socket.writable.getWriter();
-                    await writer.write(chunk);
-                    writer.releaseLock();
-                    return;
-                }
-
-                if (!protocolType) {
-
-                    if (this.ctx.kvConfig.ev && chunk.byteLength >= 24) {
-                        const vlessResult = this.parseWsPacketHeader(chunk, this.ctx.uuid);
-                        if (!vlessResult.hasError) {
-                            protocolType = 'vless';
-                            const { addressType, port, hostname, rawIndex, version, isUDP } = vlessResult;
-                            if (isUDP) {
-                                if (port === 53) isDnsQuery = true;
-                                else throw new Error(ERRORS.E_UDP_DNS_ONLY);
-                            }
-                            const respHeader = new Uint8Array([version![0], 0]);
-                            const rawData = chunk.slice(rawIndex);
-                            if (isDnsQuery) return this.forwardUDP(rawData, serverSock, respHeader);
-                            await this.forwardTCP(addressType!, hostname!, port!, rawData, serverSock, respHeader, remoteConnWrapper);
-                            return;
-                        }
-                    }
-                    throw new Error('Invalid protocol or authentication failed');
-                }
-            },
-        })).catch((err) => { 
-            console.error("出错了：",err.message)
-        });
+        this.handleStream(serverSock, earlyDataHeader)
 
         return new Response(null, {
             status: 101,
             webSocket: clientSock
         });
     }
+    mergeUint8(left: Uint8Array, right: Uint8Array) {
+        const out = new Uint8Array(left.length + right.length);
+        out.set(left);
+        out.set(right, left.length);
+        return out;
+    }
+    private async handleStream(serverSock: WebSocket, earlyDataHeader: string) {
+        let buffer = new Uint8Array(0);
 
-    async forwardTCP(addrType: ADDRESS_TYPE, host: string, portNum: number, rawData: any, ws: WebSocket, respHeader: Uint8Array<ArrayBuffer>, remoteConnWrapper: {
-        socket: Socket | null;
-    }) {
-
-        const connectAndSend = async (address: string, port: number, useSocks = false) => {
-            const remoteSock = useSocks ?
-                await this.establishSocksConnection(addrType, address, port) :
-                connect({ hostname: address, port: port });
-            const writer = remoteSock.writable.getWriter();
-            await writer.write(rawData);
-            writer.releaseLock();
-            return remoteSock;
-        }
-
-        const retryConnection = async () => {
-            if (this.ctx.kvConfig.enableSocksDowngrade && this.ctx.kvConfig.isSocksEnabled) {
-                try {
-                    const socksSocket = await connectAndSend(host, portNum, true);
-                    remoteConnWrapper.socket = socksSocket;
-                    socksSocket.closed.catch(() => { }).finally(() => Utils.closeSocketQuietly(ws));
-                    this.connectStreams(socksSocket, ws, respHeader, null);
-                    return;
-                } catch (socksErr) {
-                    let backupHost, backupPort;
-                    if (this.ctx.kvConfig.fallbackAddress && this.ctx.kvConfig.fallbackAddress.trim()) {
-                        const parsed = Utils.parseAddressAndPort(this.ctx.kvConfig.fallbackAddress);
-                        backupHost = parsed.address;
-                        backupPort = parsed.port || portNum;
-                    } else {
-                        const bestBackupIP = await this.getBestBackupIP(this.ctx.region);
-                        backupHost = bestBackupIP ? bestBackupIP.domain : host;
-                        backupPort = bestBackupIP ? bestBackupIP.port : portNum;
-                    }
-
-                    try {
-                        const fallbackSocket = await connectAndSend(backupHost, backupPort, false);
-                        remoteConnWrapper.socket = fallbackSocket;
-                        fallbackSocket.closed.catch(() => { }).finally(() => Utils.closeSocketQuietly(ws));
-                        this.connectStreams(fallbackSocket, ws, respHeader, null);
-                    } catch (fallbackErr) {
-                        Utils.closeSocketQuietly(ws);
-                    }
+        let vlessHeader: VlessHeader | null = null;
+        let remoteSocket: Socket | null = null;
+        // 1.创建WebSocket的readable
+        const readable = this.makeReadableStream(serverSock, earlyDataHeader);
+        const reader = readable.getReader()
+        // 解析vless数据头
+        while (true) {
+            if (buffer.length >= 24) {
+                const vlessResult = VlessParser.parseHeader(buffer.buffer, this.ctx.uuid)
+                if (!vlessResult.hasError) {
+                    vlessHeader = vlessResult
+                    break
                 }
-            } else {
-                let backupHost, backupPort;
-                if (this.ctx.kvConfig.fallbackAddress && this.ctx.kvConfig.fallbackAddress.trim()) {
-                    const parsed = Utils.parseAddressAndPort(this.ctx.kvConfig.fallbackAddress);
-                    backupHost = parsed.address;
-                    backupPort = parsed.port || portNum;
-                } else {
-                    const bestBackupIP = await this.getBestBackupIP(this.ctx.region);
-                    backupHost = bestBackupIP ? bestBackupIP.domain : host;
-                    backupPort = bestBackupIP ? bestBackupIP.port : portNum;
-                }
-
-                try {
-                    const fallbackSocket = await connectAndSend(backupHost, backupPort, this.ctx.kvConfig.isSocksEnabled);
-                    remoteConnWrapper.socket = fallbackSocket;
-                    fallbackSocket.closed.catch(() => { }).finally(() => Utils.closeSocketQuietly(ws));
-                    this.connectStreams(fallbackSocket, ws, respHeader, null);
-                } catch (fallbackErr) {
-                    Utils.closeSocketQuietly(ws);
+                if (vlessResult.message !== ERRORS.E_INVALID_DATA) {
+                    throw new Error(vlessResult.message)
                 }
             }
+            const { done, value } = await reader.read()
+            if (done) return;
+            if (value) {
+                const chunkU8 = await Utils.toU8(value);
+                buffer = this.mergeUint8(buffer, chunkU8);
+            }
+        }
+        // 解析成功，提取后面的数据
+        const payload = buffer.subarray(vlessHeader!.rawIndex!)
+        // 创建WebSocket的writable
+        const respHeader = new Uint8Array([vlessHeader.version![0], 0]);
+        // UDP 数据
+        if (vlessHeader.isUDP) {
+            await this.forwardUDP(payload, serverSock, respHeader);
+            return;
         }
 
-        try {
-            const initialSocket = await connectAndSend(host, portNum, this.ctx.kvConfig.enableSocksDowngrade ? false : this.ctx.kvConfig.isSocksEnabled);
-            remoteConnWrapper.socket = initialSocket;
-            this.connectStreams(initialSocket, ws, respHeader, retryConnection);
-        } catch (err) {
-            retryConnection();
+        // 2.获取目标机或者是ProxyIP的 TCP Socket
+        remoteSocket = await this.connectTarget(vlessHeader.addressType!, vlessHeader.hostname!, vlessHeader.port!)
+
+        if (payload.length > 0) {
+            const writer = remoteSocket?.writable.getWriter()
+            await writer?.write(payload)
+            writer?.releaseLock()
         }
+
+        // 3.两者连接
+        const writable = this.makeWritableStream(serverSock, respHeader)
+        reader.releaseLock()
+
+        await Promise.all([
+            readable.pipeTo(remoteSocket.writable).catch((e) => {
+                // 一侧中断时，确保另一侧也能收敛
+                try { remoteSocket?.close?.(); } catch { }
+                throw e;
+            }),
+            remoteSocket.readable.pipeTo(writable).catch((e) => {
+                try { Utils.closeSocketQuietly(serverSock); } catch { }
+                throw e;
+            }),
+        ]);
     }
 
-    parseWsPacketHeader(chunk: any, token: string) {
-        if (chunk.byteLength < 24) return { hasError: true, message: ERRORS.E_INVALID_DATA };
-        const version = new Uint8Array(chunk.slice(0, 1));
-        if (Utils.formatIdentifier(new Uint8Array(chunk.slice(1, 17))) !== token) return { hasError: true, message: ERRORS.E_INVALID_USER };
-        const optLen = new Uint8Array(chunk.slice(17, 18))[0];
-        const cmd = new Uint8Array(chunk.slice(18 + optLen, 19 + optLen))[0];
-        let isUDP = false;
-        if (cmd === 1) { } else if (cmd === 2) { isUDP = true; } else { return { hasError: true, message: ERRORS.E_UNSUPPORTED_CMD }; }
-        const portIdx = 19 + optLen;
-        const port = new DataView(chunk.slice(portIdx, portIdx + 2)).getUint16(0);
-        let addrIdx = portIdx + 2, addrLen = 0, addrValIdx = addrIdx + 1, hostname = '';
-        const addressType = new Uint8Array(chunk.slice(addrIdx, addrValIdx))[0];
 
-        switch (addressType) {
-            case ADDRESS_TYPE.IPV4: addrLen = 4; hostname = new Uint8Array(chunk.slice(addrValIdx, addrValIdx + addrLen)).join('.'); break;
-            case ADDRESS_TYPE.URL: addrLen = new Uint8Array(chunk.slice(addrValIdx, addrValIdx + 1))[0]; addrValIdx += 1; hostname = new TextDecoder().decode(chunk.slice(addrValIdx, addrValIdx + addrLen)); break;
-            case ADDRESS_TYPE.IPV6: addrLen = 16; const ipv6 = []; const ipv6View = new DataView(chunk.slice(addrValIdx, addrValIdx + addrLen).buffer); for (let i = 0; i < 8; i++) ipv6.push(ipv6View.getUint16(i * 2).toString(16)); hostname = ipv6.join(':'); break;
-            default: return { hasError: true, message: `${ERRORS.E_INVALID_ADDR_TYPE}: ${addressType}` };
+    private async connectTarget(addressType: ADDRESS_TYPE, hostname: string, port: number) {
+        const tryConnect = async (h: string, p: number, useSocks: boolean) => {
+            console.info(`connectTarget tryConnect args: \nhost: ${h} \nport: ${p} \nuseSocks: ${useSocks}`)
+            if (useSocks) {
+                return await this.establishSocksConnection(addressType, h, p);
+            }
+            return connect({ hostname: h, port: p })
+        };
+        try {
+            const useScoks = (this.ctx.kvConfig.enableSocksDowngrade && this.ctx.kvConfig.isSocksEnabled) ?? false;
+            return await tryConnect(hostname, port, useScoks)
+        } catch (error) {
+            // 直连不行，尝试使用ProxyIP 或 出站ip
         }
-        if (!hostname) return { hasError: true, message: `${ERRORS.E_EMPTY_ADDR}: ${addressType}` };
-        return { hasError: false, addressType, port, hostname, isUDP, rawIndex: addrValIdx + addrLen, version };
+        let backupHost = hostname;
+        let backupPort = port;
+        if (this.ctx.fallbackAddress?.trim()) {
+            const parsed = Utils.parseAddressAndPort(this.ctx.fallbackAddress);
+            backupHost = parsed.address;
+            backupPort = parsed.port!;
+        } else {
+            const bestIP = await this.getBestBackupIP(this.ctx.region);
+            if (bestIP) {
+                backupHost = bestIP.domain;
+                backupPort = bestIP.port;
+            }
+        }
+        const fallbackUseSocks = (this.ctx.kvConfig.enableSocksDowngrade && this.ctx.kvConfig.isSocksEnabled) ?? false;
+        return await tryConnect(backupHost, backupPort, fallbackUseSocks)
+    }
+
+    private makeWritableStream(serverSock: WebSocket, headerData: Uint8Array<ArrayBuffer>, retryFunc: Function | null = null) {
+        let header: Uint8Array<ArrayBuffer> | null = headerData, hasData = false;
+
+        return new WritableStream({
+            async write(chunk, controller) {
+                hasData = true;
+                if (serverSock.readyState !== 1) controller.error(ERRORS.E_WS_NOT_OPEN);
+                if (header) { serverSock.send(await new Blob([header, chunk]).arrayBuffer()); header = null; }
+                else { serverSock.send(chunk); }
+            },
+            abort(reason) { },
+        })
     }
 
     makeReadableStream(socket: WebSocket, earlyDataHeader: string) {
         let cancelled = false;
+        let closed = false;
+
+        const safeClose = (controller: ReadableStreamDefaultController) => {
+            if (closed) return;
+            closed = true;
+            try { controller.close(); } catch { }
+            try { Utils.closeSocketQuietly(socket); } catch { }
+        };
+
+        const safeError = (controller: ReadableStreamDefaultController, err: any) => {
+            if (closed) return;
+            // 这类错误在延迟测试里很常见：对端断开/网络丢失
+            const msg = err?.message || String(err);
+            if (msg.includes("Network connection lost") || msg.includes("socket") || msg.includes("closed")) {
+                safeClose(controller);
+                return;
+            }
+            closed = true;
+            try { controller.error(err); } catch { }
+            try { Utils.closeSocketQuietly(socket); } catch { }
+        };
+
         return new ReadableStream({
             start(controller) {
-                socket.addEventListener('message', (event) => { if (!cancelled) controller.enqueue(event.data); });
-                socket.addEventListener('close', () => { if (!cancelled) { Utils.closeSocketQuietly(socket); controller?.close(); } });
-                socket.addEventListener('error', (err) => controller.error(err));
+                socket.addEventListener("message", (event) => {
+                    if (cancelled || closed) return;
+                    try { controller.enqueue(event.data); } catch { }
+                });
+
+                socket.addEventListener("close", () => {
+                    if (cancelled || closed) return;
+                    safeClose(controller);
+                });
+
+                socket.addEventListener("error", (err) => {
+                    if (cancelled || closed) return;
+                    safeError(controller, err);
+                });
+
                 const { earlyData, error } = Utils.base64ToArray(earlyDataHeader);
-                if (error) controller.error(error); else if (earlyData) controller.enqueue(earlyData);
+                if (error) safeError(controller, error);
+                else if (earlyData) {
+                    try { controller.enqueue(earlyData); } catch { }
+                }
             },
-            cancel() { cancelled = true; Utils.closeSocketQuietly(socket); }
+            cancel() {
+                cancelled = true;
+                try { Utils.closeSocketQuietly(socket); } catch { }
+            }
         });
     }
 
-    async connectStreams(remoteSocket: Socket, webSocket: WebSocket, headerData: Uint8Array<ArrayBuffer>, retryFunc: Function|null) {
-        let header: Uint8Array<ArrayBuffer> | null = headerData, hasData = false;
-        await remoteSocket.readable.pipeTo(
-            new WritableStream({
-                async write(chunk, controller) {
-                    hasData = true;
-                    if (webSocket.readyState !== 1) controller.error(ERRORS.E_WS_NOT_OPEN);
-                    if (header) { webSocket.send(await new Blob([header, chunk]).arrayBuffer()); header = null; }
-                    else { webSocket.send(chunk); }
-                },
-                abort(reason) { },
-            })
-        ).catch((error) => { Utils.closeSocketQuietly(webSocket); });
-        if (!hasData && retryFunc) retryFunc();
-    }
-
-    async forwardUDP(udpChunk: any, webSocket: WebSocket, respHeader: Uint8Array<ArrayBuffer>|null) {
+    async forwardUDP(udpChunk: any, webSocket: WebSocket, respHeader: Uint8Array<ArrayBuffer> | null) {
         try {
             const tcpSocket = connect({ hostname: '8.8.4.4', port: 53 });
             let header = respHeader;
