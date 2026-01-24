@@ -2,6 +2,7 @@ import { KVConfig } from "../types";
 
 const CONSTANTS = {
 	DEFAULT_UUID: '351c9981-04b6-4103-aa4b-864aa9c91469',
+	KV_KEY_DOMAINs:'domains',
 	// 优选 IP API 地址
 	PREFERRED_IP_URL: 'https://raw.githubusercontent.com/qwer-search/bestip/refs/heads/main/kejilandbestip.txt',
 	// 订阅转换后端

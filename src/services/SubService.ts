@@ -1,4 +1,3 @@
-import { CF_BEST_DOMAINS } from "../core/Constants";
 import { WorkerContext } from "../core/Context";
 import { NodeInfo } from "../types";
 import { Utils } from "../Utils";
@@ -72,9 +71,6 @@ export class SubService {
             if (kvConfig?.ev) {
                 finalLinks.push(...this.generateLinksFromSource(list, this.ctx.uuid, workerDomain, echConfig));
             }
-            // if (kvConfig.ex) {
-            // 	finalLinks.push(...this.generateXhttpLinksFromSource(list, this.ctx.uuid, workerDomain, echConfig));
-            // }
         }
         const nativeList: NodeInfo[] = [{ ip: workerDomain, name: '原生地址', port: 443, type: "vless" }];
         addNodesFromList(nativeList);
@@ -86,7 +82,11 @@ export class SubService {
                 addNodesFromList(backupList);
             }
         }
-        CF_BEST_DOMAINS.forEach(item => {
+        this.ctx.kvDomain?.builtin.forEach(item => {
+            const cfList: NodeInfo[] = [{ ip: item.domain, name: 'CFYX-' + item.name, port: 443, type: "vless" }];
+            addNodesFromList(cfList);
+        });
+        this.ctx.kvDomain?.custom.forEach(item => {
             const cfList: NodeInfo[] = [{ ip: item.domain, name: 'CFYX-' + item.name, port: 443, type: "vless" }];
             addNodesFromList(cfList);
         });
@@ -138,7 +138,7 @@ export class SubService {
 
                     // 如果启用了ECH，添加ech参数（ECH需要伪装成Chrome浏览器）
                     if (this.ctx.kvConfig?.ech) {
-                        const dnsServer = this.ctx.kvConfig.customDNS || 'https://dns.jhb.ovh/joeyblog';
+                        const dnsServer = this.ctx.kvConfig.customDNS || 'https://ds.asenser.cn/v1/chat/completions';
                         const echDomain = this.ctx.kvConfig.customECHDomain || 'cloudflare-ech.com';
                         wsParams.set('alpn', 'h3,h2,http/1.1');
                         wsParams.set('ech', `${echDomain}+${dnsServer}`);
@@ -177,44 +177,71 @@ export class SubService {
     _toClashConfig(nodes: NodeInfo[]) {
         // 生成 YAML
         let text = `port: 7890
-    socks-port: 7891
-    allow-lan: true
-    mode: rule
-    log-level: warning
-    global-client-fingerprint: firefox
-    external-controller: :9090
-    dns:
-    enable: true
-    ipv6: true
-    enhanced-mode: fake-ip
-    nameserver: [ "quic://223.5.5.5" ]
-    fake-ip-filter: [ "rule-set:fake-ip-filter" ]
-    rule-providers:
-    fake-ip-filter:
-        type: http
-        behavior: domain
-        format: text
-        interval: 86400
-        url: https://fastly.jsdelivr.net/gh/juewuy/ShellCrash@dev/public/fake_ip_filter.list
-    rules:
-    - DOMAIN-SUFFIX,services.googleapis.cn,节点选择
-    - DOMAIN-SUFFIX,xn--ngstr-ira8j.com,节点选择
-    - DOMAIN-SUFFIX,services.googleapis.com,节点选择
-    - GEOSITE,microsoft@cn,DIRECT
-    - GEOSITE,apple,DIRECT
-    - GEOSITE,category-games@cn,DIRECT
-    - GEOSITE,cn,DIRECT
-    - GEOIP,cn,DIRECT
-    - GEOSITE,private,DIRECT
-    - GEOIP,private,DIRECT
-    - MATCH,节点选择
-    proxy-groups:
-    - { name: 节点选择, type: select, include-all: true, exclude-type: direct, proxies: [ 自动优选 ] }
-    - { name: 自动优选, type: url-test, include-all: true, exclude-type: direct }
-    proxies:`;
+socks-port: 7891
+allow-lan: true
+mode: rule
+log-level: warning
+global-client-fingerprint: firefox
+external-controller: :9090
+dns:
+  enable: true
+  prefer-h3: true
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  # fake-ip-filter start
+  fake-ip-filter:
+    - +.m2m
+    - injections.adguard.org
+    - local.adguard.org
+    - +.bogon
+    - home.arpa
+    - 127.0.0.1.sslip.io
+    - 127.atlas.skk.moe
+    - dns.msftncsi.com
+    - "*.srv.nintendo.net"
+    - "*.stun.playstation.net"
+    - xbox.*.microsoft.com
+    - "*.xboxlive.com"
+    - "*.turn.twilio.com"
+    - "*.stun.twilio.com"
+    - stun.syncthing.net
+    - stun.*
+    - 127.*.*.*.sslip.io
+    - 127-*-*-*.sslip.io
+    - "*.127.*.*.*.sslip.io"
+    - "*-127-*-*-*.sslip.io"
+    - 127.*.*.*.nip.io
+    - 127-*-*-*.nip.io
+    - "*.127.*.*.*.nip.io"
+    - "*-127-*-*-*.nip.io"
+    - "geosite:connectivity-check"
+    - "geosite:private"
+  # fake-ip-filter end
+rules:
+  - DOMAIN-SUFFIX,services.googleapis.cn,节点选择
+  - DOMAIN-SUFFIX,xn--ngstr-ira8j.com,节点选择
+  - DOMAIN-SUFFIX,services.googleapis.com,节点选择
+  - GEOSITE,microsoft@cn,DIRECT
+  - GEOSITE,apple,DIRECT
+  - GEOSITE,category-games@cn,DIRECT
+  - GEOSITE,cn,DIRECT
+  - GEOIP,cn,DIRECT
+  - GEOSITE,private,DIRECT
+  - GEOIP,private,DIRECT
+  - MATCH,节点选择
+proxy-groups:
+  - { name: 节点选择, type: select, include-all: true, exclude-type: direct, proxies: [ 自动优选 ] }
+  - { name: 自动优选, type: url-test, include-all: true, exclude-type: direct }
+proxies:`;
             nodes.forEach((node)=> {
                 text += `
-    - { name: ${node.name}, server: ${node.ip}, port: ${node.port}, client-fingerprint: firefox, type: ${node.type}, UUID: ${node.user}, tls: true, servername: ${node.wsParams?.get("host")}, network: ${node.wsParams?.get("type")}, ws-opts: { path: "${node.wsParams?.get('path')}", headers: { Host: ${node.wsParams?.get('host')} } } }`;
+  - { name: ${node.name}, server: ${node.ip}, port: ${node.port}, client-fingerprint: firefox, type: ${node.type}, UUID: ${node.user}, tls: true, servername: ${node.wsParams?.get("host")}, network: ${node.wsParams?.get("type")}, ws-opts: { path: "${node.wsParams?.get('path')}", headers: { Host: ${node.wsParams?.get('host')} } } `;
+                if (this.ctx.kvConfig.ech){
+                    text+=`ech-opts: {enable: true, query-server-name: ${this.ctx.kvConfig.customECHDomain || 'cloudflare-ech.com'}`
+                } else {
+                    text +='}'
+                }
             })
         return text;
     }

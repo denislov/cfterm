@@ -1,6 +1,6 @@
-import { KVConfig, SSConfig } from "../types";
+import { DomainStorage, KVConfig, SSConfig } from "../types";
 import { Utils } from "../Utils";
-import { CONSTANTS } from "./Constants";
+import { CF_BEST_DOMAINS, CONSTANTS } from "./Constants";
 
 export class WorkerContext {
 	readonly request: Request;
@@ -15,6 +15,7 @@ export class WorkerContext {
 	region: string;
 	kvConfig: KVConfig;
 	socksConfig?: SSConfig;
+	kvDomain?: DomainStorage;
 	fallbackAddress?: string;
 	state: Map<string, any>;
 
@@ -67,6 +68,21 @@ export class WorkerContext {
 			// 使用默认配置
 			console.warn('[KV] load config failed, using defaults', error);
 		}
+		try {
+            const kvData = await this.kv!.get(CONSTANTS.KV_KEY_DOMAINs);
+            this.kvDomain =  kvData ? JSON.parse(kvData) as DomainStorage : { builtin: CF_BEST_DOMAINS.map(
+                item => (
+                    { domain: item.domain, name: item.name, enabled: true, type: 'builtin' }
+                )
+            ), custom: [] };
+        } catch (error) {
+            console.error('Error fetching domain storage from KV:', error);
+			this.kvDomain = { builtin: CF_BEST_DOMAINS.map(
+                item => (
+                    { domain: item.domain, name: item.name, enabled: true, type: 'builtin' }
+                )
+            ), custom: [] };
+        }
 	}
 
 	/**
