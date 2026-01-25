@@ -5,7 +5,7 @@ import { Utils } from '../Utils';
 export const authHandler = async (ctx: WorkerContext, next: () => Promise<Response>): Promise<Response> => {
 	const path = ctx.url.pathname;
 
-	// WebSocket连接不需要认证，直接通过
+    // WebSocket连接不需要认证，直接处理
 	if (ctx.request.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
 		const chatService = new ChatService(ctx);
 		return await chatService.handleUpgrade();

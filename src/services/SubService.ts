@@ -5,15 +5,9 @@ import { Utils } from '../Utils';
 export class SubService {
 	ctx: WorkerContext;
 	// 定义节点类型
-	echConfig?: string;
 
 	constructor(ctx: WorkerContext) {
 		this.ctx = ctx;
-		if (ctx.kvConfig?.ech) {
-			const dnsServer = ctx.kvConfig.customDNS || 'https://ds.asenser.cn/v1/chat/completions';
-			const echDomain = ctx.kvConfig.customECHDomain || 'cloudflare-ech.com';
-			this.echConfig = `${echDomain}+${dnsServer}`;
-		}
 	}
 
 	async handle() {
@@ -35,15 +29,7 @@ export class SubService {
 		const responseHeaders = {
 			'Content-Type': contentType,
 			'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-			'X-ECH-Status': 'DISABLED',
-			'X-ECH-Config-Length': '0',
 		};
-
-		// 添加ECH状态到响应头
-		if (this.echConfig) {
-			responseHeaders['X-ECH-Status'] = 'ENABLED';
-			responseHeaders['X-ECH-Config-Length'] = String(this.echConfig.length);
-		}
 
 		return new Response(subscriptionContent, {
 			headers: responseHeaders,
@@ -65,7 +51,7 @@ export class SubService {
         const proto = atob('dmxlc3M=');
 		const addNodesFromList = (list: NodeInfo[]) => {
 			if (kvConfig?.ev) {
-				finalLinks.push(...this.generateLinksFromSource(list, this.ctx.uuid, workerDomain, this.echConfig));
+				finalLinks.push(...this.generateLinksFromSource(list, this.ctx.uuid, workerDomain, this.ctx.echConfig));
 			}
 		};
 		const nativeList: NodeInfo[] = [{ ip: workerDomain, name: '原生地址', port: 443, type: proto }];

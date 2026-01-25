@@ -54,6 +54,7 @@ export interface KVConfig {
     et?: boolean;
     // 是否启用 XHTTP 协议 (SubService commented out)
     ex?: boolean;
+    tp?: string;
 
     /**
      * === ECH (Encrypted Client Hello) 配置 ===

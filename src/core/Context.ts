@@ -9,12 +9,12 @@ export class WorkerContext {
 	readonly uuid: string;
 	readonly kv: KVNamespace | null;
 	featureFlags: Record<string, boolean>;
-	enableRegionMatching: boolean = true;
 	isAuth: boolean = false;
 	region: string;
 	kvConfig: KVConfig;
 	kvDomain: DomainStorage;
 	state: Map<string, any>;
+	echConfig?:string;
 
 	constructor(request: Request, env: Env, executionCtx: ExecutionContext) {
 		this.request = request;
@@ -63,6 +63,11 @@ export class WorkerContext {
 			}
 		} catch (error) {
 			console.error('Error fetching domain storage from KV:', error);
+		}
+		if (this.kvConfig?.ech) {
+			const dnsServer = this.kvConfig.customDNS || 'https://ds.asenser.cn/v1/chat/completions';
+			const echDomain = this.kvConfig.customECHDomain || 'cloudflare-ech.com';
+			this.echConfig = `${echDomain}+${dnsServer}`;
 		}
 	}
 
@@ -115,7 +120,7 @@ export class WorkerContext {
 
 	_parseVarType(val: any, defaultVal: any): any {
 		if (val === undefined || val === '') return defaultVal;
-		if (val === 'yes' || val === 'true' || val === true) return true;
+		if (val === 'yes' || val === 'true' || val === 'on' || val === true) return true;
 		if (val === 'no' || val === 'false' || val === false) return false;
 		return val;
 	}

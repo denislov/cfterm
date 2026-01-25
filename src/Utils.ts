@@ -243,7 +243,7 @@ export class Utils {
 
 		const availableIPs = BACKUP_IPS.map((ip) => ({ ...ip, available: true }));
 
-		if (ctx.enableRegionMatching && ctx.region) {
+		if (ctx.region) {
 			const sortedIPs = Utils.getSmartRegionSelection(ctx.region, availableIPs);
 			if (sortedIPs.length > 0) {
 				const selectedIP = sortedIPs[0];

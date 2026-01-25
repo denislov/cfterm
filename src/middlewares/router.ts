@@ -1,6 +1,5 @@
 import { CONSTANTS } from '../core/Constants';
 import { WorkerContext } from '../core/Context';
-import { ChatService } from '../services/ChatService';
 import { SubService } from '../services/SubService';
 import { Utils } from '../Utils';
 import { ApiHandler } from './apiHandler';
@@ -32,7 +31,7 @@ export const router = async (ctx: WorkerContext, next: Function) => {
 			});
 		}
 		try {
-			return ctx.env.ASSETS.fetch(ctx.request);
+			// return ctx.env.ASSETS.fetch(ctx.request);
 			const response = await fetch(CONSTANTS.INDEX_HTML_URL, {
 				headers: { 'User-Agent': 'Cloudflare-Worker/1.0' },
 				cf: { cacheTtl: CONSTANTS.HTML_CACHE_TTL, cacheEverything: true },

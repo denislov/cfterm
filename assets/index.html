@@ -143,41 +143,6 @@
 				</div>
 			</div>
 
-			<!-- Token Authentication -->
-			<div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6 card-hover" id="tokenCard">
-				<div class="flex items-center mb-4">
-					<i class="fas fa-key text-amber-600 mr-2"></i>
-					<h2 class="text-lg font-semibold text-gray-900" id="tokenTitle">访问令牌验证</h2>
-				</div>
-				<div class="space-y-4">
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-2" id="tokenLabel">
-							<i class="fas fa-fingerprint mr-1"></i>访问令牌
-						</label>
-						<input
-							type="password"
-							id="tokenInput"
-							class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-							placeholder="请输入你的UUID令牌"
-						/>
-						<p class="mt-1 text-sm text-gray-500" id="tokenHintText">
-							<i class="fas fa-info-circle mr-1"></i>
-							需要有效的UUID令牌才能访问配置管理功能
-						</p>
-					</div>
-					<div>
-						<button
-							type="button"
-							onclick="validateAndSaveToken()"
-							class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-							id="tokenSaveBtn"
-						>
-							<i class="fas fa-sign-in-alt mr-2"></i>验证并保存
-						</button>
-					</div>
-				</div>
-			</div>
-
 			<!-- Configuration Management -->
 			<div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6 card-hover" id="configCard">
 				<div class="flex items-center mb-4">
@@ -262,155 +227,6 @@
 						</div>
 					</div>
 
-					<!-- Basic Configuration -->
-					<div class="bg-gray-50 rounded-lg p-4 mb-6">
-						<h3 class="text-md font-semibold text-gray-900 mb-4"><i class="fas fa-sliders-h text-green-500 mr-2"></i>基本配置</h3>
-						<form id="basicConfigForm" class="space-y-4">
-							<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<div>
-									<label class="block text-sm font-medium text-gray-700 mb-2" id="customPathLabel"> 自定义路径 (d) </label>
-									<input
-										type="text"
-										id="customPath"
-										class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-										placeholder="/mypath"
-									/>
-								</div>
-								<div>
-									<label class="block text-sm font-medium text-gray-700 mb-2" id="customIPLabel"> 自定义 ProxyIP (p) </label>
-									<input
-										type="text"
-										id="customIP"
-										class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-										placeholder="1.2.3.4:443"
-									/>
-								</div>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-2" id="yxLabel"> 优选 IP 列表 (yx) </label>
-								<input
-									type="text"
-									id="yx"
-									class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-									placeholder="1.2.3.4:443#节点名,5.6.7.8:80"
-								/>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-2" id="yxURLLabel"> 优选 IP 来源 URL </label>
-								<input
-									type="text"
-									id="yxURL"
-									class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-									placeholder=""
-								/>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-2" id="socksLabel"> SOCKS5 配置 </label>
-								<input
-									type="text"
-									id="socksConfig"
-									class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-									placeholder="user:pass@host:port"
-								/>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-2" id="homepageLabel"> 自定义首页 URL </label>
-								<input
-									type="text"
-									id="customHomepage"
-									class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-									placeholder="https://example.com"
-								/>
-								<p class="mt-1 text-sm text-gray-500" id="homepageHint">设置自定义URL作为首页伪装</p>
-							</div>
-							<button
-								type="submit"
-								class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-								id="saveConfigBtn"
-							>
-								<i class="fas fa-save mr-2"></i>保存配置
-							</button>
-						</form>
-					</div>
-
-					<!-- Advanced Configuration -->
-					<div class="bg-gray-50 rounded-lg p-4 mb-6">
-						<h3 class="text-md font-semibold text-gray-900 mb-4"><i class="fas fa-cog text-purple-500 mr-2"></i>高级控制</h3>
-						<form id="advancedConfigForm" class="space-y-4">
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-2" id="scuLabel"> 订阅转换地址 </label>
-								<input
-									type="text"
-									id="scu"
-									class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-									placeholder="https://url.v1.mk/sub"
-								/>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-3">优化选项</label>
-								<div class="space-y-2">
-									<label
-										class="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200 cursor-pointer hover:bg-blue-50 transition-colors"
-									>
-										<input type="checkbox" id="epd" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-										<span class="text-sm font-medium text-gray-900" id="epdLabel">启用优选域名</span>
-									</label>
-									<label
-										class="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200 cursor-pointer hover:bg-blue-50 transition-colors"
-									>
-										<input type="checkbox" id="epi" checked class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-										<span class="text-sm font-medium text-gray-900" id="epiLabel">启用优选IP</span>
-									</label>
-									<label
-										class="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200 cursor-pointer hover:bg-blue-50 transition-colors"
-									>
-										<input type="checkbox" id="egi" checked class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-										<span class="text-sm font-medium text-gray-900" id="egiLabel">启用GitHub优选</span>
-									</label>
-								</div>
-							</div>
-							<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-								<div>
-									<label class="block text-sm font-medium text-gray-700 mb-2" id="aeLabel"> API 管理 </label>
-									<select
-										id="apiEnabled"
-										class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-									>
-										<option value="">默认（关闭）</option>
-										<option value="yes">开启</option>
-									</select>
-								</div>
-								<div>
-									<label class="block text-sm font-medium text-gray-700 mb-2" id="rmLabel"> 地区匹配 </label>
-									<select
-										id="regionMatching"
-										class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-									>
-										<option value="">默认（启用）</option>
-										<option value="no">关闭</option>
-									</select>
-								</div>
-								<div>
-									<label class="block text-sm font-medium text-gray-700 mb-2" id="dkbyLabel"> TLS 控制 </label>
-									<select
-										id="portControl"
-										class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-									>
-										<option value="">默认（全部）</option>
-										<option value="yes">仅TLS</option>
-									</select>
-								</div>
-							</div>
-							<button
-								type="submit"
-								class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-								id="saveAdvancedBtn"
-							>
-								<i class="fas fa-save mr-2"></i>保存高级配置
-							</button>
-						</form>
-					</div>
-
 					<!-- Current Configuration Display -->
 					<div class="bg-gray-50 rounded-lg p-4 mb-6">
 						<h3 class="text-md font-semibold text-gray-900 mb-4"><i class="fas fa-clipboard-list text-orange-500 mr-2"></i>当前配置</h3>
@@ -439,7 +255,6 @@
 					<!-- Domain Management -->
 					<div class="bg-gray-50 rounded-lg p-4 mb-6">
 						<h3 class="text-md font-semibold text-gray-900 mb-2"><i class="fas fa-globe-americas text-teal-500 mr-2"></i>优选域名管理</h3>
-						<p class="text-sm text-gray-600 mb-4" id="domainsHint">管理订阅中使用的优选域名列表。需先开启"允许API管理"选项。</p>
 
 						<!-- Domains Table -->
 						<div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
@@ -575,29 +390,9 @@
 					protocolLabel: '协议选择:',
 					trojanPwdLabel: 'Trojan 密码 (可选):',
 					saveProtocol: '保存协议',
-					customPathLabel: '自定义路径 (d):',
-					customIPLabel: '自定义ProxyIP (p):',
-					yxLabel: '优选IP列表 (yx):',
-					yxURLLabel: '优选IP来源URL:',
-					socksLabel: 'SOCKS5配置:',
-					homepageLabel: '自定义首页URL:',
-					homepageHint: '设置自定义URL作为首页伪装',
-					saveConfig: '保存配置',
-					advancedTitle: '高级控制',
-					scuLabel: '订阅转换地址:',
-					epdLabel: '启用优选域名',
-					epiLabel: '启用优选IP',
-					egiLabel: '启用GitHub优选',
-					aeLabel: 'API管理:',
-					aeDefault: '默认（关闭）',
-					aeYes: '开启',
 					rmLabel: '地区匹配:',
 					rmDefault: '默认（启用）',
 					rmNo: '关闭',
-					dkbyLabel: 'TLS控制:',
-					dkbyDefault: '默认（全部）',
-					dkbyYes: '仅TLS',
-					saveAdvanced: '保存高级配置',
 					refresh: '刷新',
 					reset: '重置',
 					checking: '检测中...',
@@ -624,12 +419,6 @@
 					cloudflareDetection: 'Cloudflare检测',
 					available: '可用',
 					smartSelection: '智能选择中',
-					tokenLabel: '访问令牌:',
-					tokenPlaceholder: '请输入你的UUID令牌',
-					tokenHint: '需要有效的UUID令牌才能访问配置管理功能',
-					tokenSave: '验证并保存',
-					tokenRequired: '请先输入访问令牌',
-					tokenInvalid: '令牌验证失败',
 				},
 				fa: {
 					title: 'مرکز اشتراک',
@@ -646,29 +435,9 @@
 					protocolLabel: 'انتخاب پروتکل:',
 					trojanPwdLabel: 'رمز Trojan:',
 					saveProtocol: 'ذخیره پروتکل',
-					customPathLabel: 'مسیر سفارشی:',
-					customIPLabel: 'ProxyIP سفارشی:',
-					yxLabel: 'لیست IP ترجیحی:',
-					yxURLLabel: 'URL منبع IP:',
-					socksLabel: 'تنظیمات SOCKS5:',
-					homepageLabel: 'URL صفحه اصلی:',
-					homepageHint: 'تنظیم URL سفارشی برای استتار',
-					saveConfig: 'ذخیره',
-					advancedTitle: 'کنترل پیشرفته',
-					scuLabel: 'آدرس تبدیل:',
-					epdLabel: 'دامنه ترجیحی',
-					epiLabel: 'IP ترجیحی',
-					egiLabel: 'GitHub ترجیحی',
-					aeLabel: 'مدیریت API:',
-					aeDefault: 'پیش‌فرض',
-					aeYes: 'فعال',
 					rmLabel: 'تطبیق منطقه:',
 					rmDefault: 'پیش‌فرض',
 					rmNo: 'غیرفعال',
-					dkbyLabel: 'کنترل TLS:',
-					dkbyDefault: 'همه',
-					dkbyYes: 'فقط TLS',
-					saveAdvanced: 'ذخیره',
 					refresh: 'تازه‌سازی',
 					reset: 'بازنشانی',
 					checking: 'در حال بررسی...',
@@ -695,12 +464,6 @@
 					cloudflareDetection: 'تشخیص Cloudflare',
 					available: 'در دسترس',
 					smartSelection: 'انتخاب هوشمند',
-					tokenLabel: 'توکن دسترسی:',
-					tokenPlaceholder: 'توکن UUID خود را وارد کنید',
-					tokenHint: 'برای دسترسی به تنظیمات، توکن UUID معتبر لازم است',
-					tokenSave: 'تأیید',
-					tokenRequired: 'لطفاً توکن را وارد کنید',
-					tokenInvalid: 'توکن نامعتبر است',
 				},
 			};
 
@@ -718,7 +481,6 @@
 			let currentLang = 'zh';
 			let t = i18n.zh;
 			const API_BASE = window.location.origin;
-			const SUB_CONVERTER = 'https://url.v1.mk/sub';
 
 			// Token 管理
 			let AUTH_TOKEN = localStorage.getItem('authToken') || '';
@@ -732,40 +494,6 @@
 					headers['X-Token'] = AUTH_TOKEN;
 				}
 				return fetch(url, { ...options, headers });
-			}
-
-			// 验证并保存 Token
-			async function validateAndSaveToken() {
-				const tokenInput = document.getElementById('tokenInput');
-				const token = tokenInput.value.trim();
-
-				if (!token) {
-					showStatus(t.tokenRequired, 'error');
-					return;
-				}
-
-				// 临时设置 token 并测试
-				AUTH_TOKEN = token;
-				try {
-					const res = await authFetch(`${API_BASE}/api/config`);
-					if (res.ok || res.status === 503) {
-						// 503 表示 KV 未配置，但认证成功
-						localStorage.setItem('authToken', token);
-						showStatus('Token 验证成功', 'success');
-						document.getElementById('tokenCard').style.display = 'none';
-						checkKVStatus();
-						loadDomains();
-					} else if (res.status === 401 || res.status === 403) {
-						AUTH_TOKEN = '';
-						showStatus(t.tokenInvalid, 'error');
-					} else {
-						const data = await res.json();
-						showStatus(data.error || t.tokenInvalid, 'error');
-					}
-				} catch (e) {
-					AUTH_TOKEN = '';
-					showStatus('验证失败: ' + e.message, 'error');
-				}
 			}
 
 			// 工具函数
@@ -810,26 +538,8 @@
 				document.getElementById('githubLink').textContent = t.githubLink;
 				document.getElementById('regionLabel').textContent = t.regionLabel;
 				document.getElementById('saveRegionBtn').textContent = t.saveRegion;
-				// document.getElementById('protocolLabel').textContent = t.protocolLabel;
 				document.getElementById('trojanPwdLabel').textContent = t.trojanPwdLabel;
 				document.getElementById('saveProtocolBtn').textContent = t.saveProtocol;
-				document.getElementById('customPathLabel').textContent = t.customPathLabel;
-				document.getElementById('customIPLabel').textContent = t.customIPLabel;
-				document.getElementById('yxLabel').textContent = t.yxLabel;
-				document.getElementById('yxURLLabel').textContent = t.yxURLLabel;
-				document.getElementById('socksLabel').textContent = t.socksLabel;
-				document.getElementById('homepageLabel').textContent = t.homepageLabel;
-				document.getElementById('homepageHint').textContent = t.homepageHint;
-				document.getElementById('saveConfigBtn').textContent = t.saveConfig;
-				// document.getElementById('advancedTitle').textContent = t.advancedTitle;
-				document.getElementById('scuLabel').textContent = t.scuLabel;
-				document.getElementById('epdLabel').textContent = t.epdLabel;
-				document.getElementById('epiLabel').textContent = t.epiLabel;
-				document.getElementById('egiLabel').textContent = t.egiLabel;
-				document.getElementById('aeLabel').textContent = t.aeLabel;
-				document.getElementById('rmLabel').textContent = t.rmLabel;
-				document.getElementById('dkbyLabel').textContent = t.dkbyLabel;
-				document.getElementById('saveAdvancedBtn').textContent = t.saveAdvanced;
 				document.getElementById('refreshBtn').textContent = t.refresh;
 				document.getElementById('resetBtn').textContent = t.reset;
 				document.getElementById('languageSelector').value = lang;
@@ -839,7 +549,6 @@
 				// 渲染地区选择
 				renderRegionSelect();
 				// 渲染高级选择框
-				renderAdvancedSelects();
 			}
 
 			function renderClientButtons() {
@@ -879,22 +588,14 @@
 						.join('');
 			}
 
-			function renderAdvancedSelects() {
-				document.getElementById('apiEnabled').innerHTML = `<option value="">${t.aeDefault}</option><option value="yes">${t.aeYes}</option>`;
-				document.getElementById('regionMatching').innerHTML =
-					`<option value="">${t.rmDefault}</option><option value="no">${t.rmNo}</option>`;
-				document.getElementById('portControl').innerHTML =
-					`<option value="">${t.dkbyDefault}</option><option value="yes">${t.dkbyYes}</option>`;
-			}
-
 			// 生成订阅链接
 			function generateLink(type, name, scheme) {
-				const subUrl = location.href.replace(/\/$/, '') + '/sub';
+				const subUrl = location.href.replace(/\/$/, '') + '/sub?token='+AUTH_TOKEN;
 				let finalUrl = subUrl;
 
 				if (type !== 'v2ray') {
 					const encoded = encodeURIComponent(subUrl);
-					finalUrl = `${SUB_CONVERTER}?target=${type}&url=${encoded}&insert=false&emoji=true&list=false&expand=true&scv=false&new_name=true`;
+					finalUrl = `${finalUrl}&target=${type}`;
 				}
 
 				const urlEl = document.getElementById('subUrl');
@@ -929,17 +630,19 @@
 			async function checkSystemStatus() {
 				try {
 					const res = await fetch(`${API_BASE}/api/status`);
-					const data = await res.json();
+					const region = res.headers.get("X-Worker-Region");
+					const echStatus = res.headers.get("X-ECH-Status");
+					const echConfigLen = res.headers.get("X-ECH-Config-Length");
 
 					document.getElementById('regionStatus').innerHTML =
-						`<span class="text-green-600">🌍 ${t.regions[data.region] || data.region}</span>`;
+						`<span class="text-green-600">🌍 ${t.regions[region] || region}</span>`;
 					document.getElementById('geoInfo').innerHTML = `<span class="text-blue-600">🔍 ${t.cloudflareDetection}</span>`;
 					document.getElementById('proxyIPStatus').innerHTML = `<span class="text-green-600">✅ ${t.available}</span>`;
 					document.getElementById('currentIP').innerHTML = `<span class="text-gray-600">🔄 ${t.smartSelection}</span>`;
 					document.getElementById('regionMatch').innerHTML = `<span class="text-green-600">✅ 匹配成功</span>`;
 
-					if (data.echEnabled) {
-						document.getElementById('echStatus').innerHTML = `<span class="text-green-600">✅ ${t.available}</span>`;
+					if (echStatus) {
+						document.getElementById('echStatus').innerHTML = `<span class="text-green-600">✅ ${t.available} 长度${echConfigLen}</span>`;
 					} else {
 						document.getElementById('echStatus').innerHTML = `<span class="text-amber-600">⚠️ 未启用</span>`;
 					}
@@ -962,25 +665,19 @@
 			async function checkKVStatus() {
 				// 如果没有 token，显示 token 输入卡片
 				if (!AUTH_TOKEN) {
-					document.getElementById('tokenCard').classList.remove('hidden');
 					document.getElementById('configCard').classList.add('hidden');
 					return;
 				}
 
 				try {
 					const res = await authFetch(`${API_BASE}/api/config`);
-					console.log(res.status);
 					// 认证失败
 					if (res.status === 401 || res.status === 403) {
 						AUTH_TOKEN = '';
 						localStorage.removeItem('authToken');
-						document.getElementById('tokenCard').classList.remove('hidden');
 						document.getElementById('configCard').classList.add('hidden');
 						return;
 					}
-
-					// 隐藏 token 卡片
-					document.getElementById('tokenCard').classList.add('hidden');
 
 					if (res.status === 503) {
 						const statusEl = document.getElementById('kvStatus');
@@ -993,7 +690,6 @@
 						return;
 					}
 					const data = await res.json();
-					console.log(data);
 					if (data.kvEnabled) {
 						const statusEl = document.getElementById('kvStatus');
 						statusEl.innerHTML = `<div class="flex items-center">
@@ -1030,7 +726,6 @@
 					const res = await authFetch(`${API_BASE}/api/config`);
 					if (!res.ok) return;
 					const cfg = await res.json();
-					console.log('cfg:', cfg);
 
 					// 填充表单
 					document.getElementById('wkRegion').value = cfg.wk || '';
@@ -1039,19 +734,6 @@
 					document.getElementById('ex').checked = cfg.ex === true;
 					document.getElementById('ech').checked = cfg.ech === true;
 					document.getElementById('tp').value = cfg.tp || '';
-					document.getElementById('customPath').value = cfg.d || '';
-					document.getElementById('customIP').value = cfg.p || '';
-					document.getElementById('yx').value = cfg.yx || '';
-					document.getElementById('yxURL').value = cfg.yxURL || '';
-					document.getElementById('socksConfig').value = cfg.s || '';
-					document.getElementById('customHomepage').value = cfg.homepage || '';
-					document.getElementById('scu').value = cfg.scu || '';
-					document.getElementById('epd').checked = cfg.epd === true;
-					document.getElementById('epi').checked = cfg.epi !== false;
-					document.getElementById('egi').checked = cfg.egi !== false;
-					document.getElementById('apiEnabled').value = cfg.ae ? '' : 'no';
-					document.getElementById('regionMatching').value = cfg.rm || '';
-					document.getElementById('portControl').value = cfg.dkby ? 'yes' : '';
 
 					// 显示当前配置
 					const display = Object.entries(cfg)
@@ -1076,7 +758,6 @@
 					showStatus(result.message || '保存成功', result.success ? 'success' : 'error');
 					if (result.success) {
 						loadCurrentConfig();
-						setTimeout(() => location.reload(), 1500);
 					}
 				} catch (e) {
 					showStatus('保存失败: ' + e.message, 'error');
@@ -1137,11 +818,11 @@
 			}
 			function saveProtocolConfig() {
 				saveConfig({
-					ev: document.getElementById('ev').value,
-					et: document.getElementById('et').value,
-					ex: document.getElementById('ex').value,
+					ev: document.getElementById('ev').checked,
+					et: document.getElementById('et').checked,
+					ex: document.getElementById('ex').checked,
 					tp: document.getElementById('tp').value,
-					ech: document.getElementById('ech').value,
+					ech: document.getElementById('ech').checked,
 				});
 			}
 
@@ -1167,31 +848,6 @@
 				document.getElementById('regionForm').addEventListener('submit', (e) => {
 					e.preventDefault();
 					saveConfig({ wk: document.getElementById('wkRegion').value });
-				});
-
-				document.getElementById('basicConfigForm').addEventListener('submit', (e) => {
-					e.preventDefault();
-					saveConfig({
-						d: document.getElementById('customPath').value,
-						p: document.getElementById('customIP').value,
-						yx: document.getElementById('yx').value,
-						yxURL: document.getElementById('yxURL').value,
-						s: document.getElementById('socksConfig').value,
-						homepage: document.getElementById('customHomepage').value,
-					});
-				});
-
-				document.getElementById('advancedConfigForm').addEventListener('submit', (e) => {
-					e.preventDefault();
-					saveConfig({
-						scu: document.getElementById('scu').value,
-						epd: document.getElementById('epd').checked ? true : false,
-						epi: document.getElementById('epi').checked ? true : false,
-						egi: document.getElementById('egi').checked ? true : false,
-						ae: document.getElementById('apiEnabled').value,
-						rm: document.getElementById('regionMatching').value,
-						dkby: document.getElementById('portControl').value,
-					});
 				});
 
 				// 加载域名列表

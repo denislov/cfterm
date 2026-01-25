@@ -1,4 +1,4 @@
-import { CF_BEST_DOMAINS, CONSTANTS } from "../core/Constants";
+import { CONSTANTS } from "../core/Constants";
 import { WorkerContext } from "../core/Context";
 import { DomainRecord, DomainStorage, KVConfig } from "../types";
 import { Utils } from "../Utils";
@@ -13,11 +13,12 @@ export class ConfigService {
     }
 
     async handleConfigRoute(): Promise<Response> {
-        if (!this.checkKV()) return this.kvMissingResponse();
+        if (!this.ctx.kv) return this.kvMissingResponse();
 
         const method = this.ctx.request.method.toUpperCase();
         if (method === 'GET') {
-            const config = await this.getKVConfig();
+            const config = this.ctx.kvConfig;
+            console.info(config)
             return Utils.jsonResponse({ ...config, kvEnabled: true });
         }
         if (method === 'POST') {
@@ -27,8 +28,9 @@ export class ConfigService {
                     await this.saveKVConfig({
                         ...CONSTANTS.KV_CONFIG_DEFAULTS
                     })
+                    return Utils.jsonResponse({ success: true, message: '配置已保存', config: CONSTANTS.KV_CONFIG_DEFAULTS });
                 }
-                const currentConfig = await this.getKVConfig();
+                const currentConfig = this.ctx.kvConfig;
 
                 for (const [key, value] of Object.entries(newConfig)) {
                     if (value === '' || value === null || value === undefined) {
@@ -49,11 +51,11 @@ export class ConfigService {
     }
     // 处理 /api/domains 路由
     async handleDomainsRoute(): Promise<Response> {
-        if (!this.checkKV()) return this.kvMissingResponse();
+        if (!this.ctx.kv) return this.kvMissingResponse();
 
         const method = this.ctx.request.method.toUpperCase();
         if (method === 'GET') {
-            const storage = await this.getDomainStorage();
+            const storage = this.ctx.kvDomain;
             return Utils.jsonResponse({ success: true, ...storage, total: storage.builtin.length + storage.custom.length });
         }
         if (method === 'POST') {
@@ -65,7 +67,7 @@ export class ConfigService {
                 if (!Utils.isDomain(body.domain) && !Utils.isIp(body.domain)) {
                     return Utils.errorResponse('无效的域名或IP地址', 400);
                 }
-                const storage = await this.getDomainStorage();
+                const storage = this.ctx.kvDomain;
 
                 // 检查重复
                 const exists = [
@@ -96,7 +98,7 @@ export class ConfigService {
 
             // 清空所有
             if (body.all) {
-                const storage = await this.getDomainStorage();
+                const storage = this.ctx.kvDomain;
                 storage.custom = [];
                 await this.saveDomainStorage(storage);
                 return Utils.jsonResponse({ success: true, message: '已清空所有自定义域名' });
@@ -104,7 +106,7 @@ export class ConfigService {
             if (!body.domain) {
                 return Utils.errorResponse('域名不能为空', 400);
             }
-            const storage = await this.getDomainStorage();
+            const storage = this.ctx.kvDomain;
             const customIdx = storage.custom.findIndex(d => d.domain === body.domain);
             const builtinIdx = storage.builtin.findIndex(d => d.domain === body.domain);
             if (customIdx >= 0) {
@@ -123,7 +125,7 @@ export class ConfigService {
             if (!body.domain) {
                 return Utils.errorResponse('域名不能为空', 400);
             }
-            const storage = await this.getDomainStorage();
+            const storage = this.ctx.kvDomain;
             let found = false;
             // 优先查找内置
             const builtin = storage.builtin.find(d => d.domain === body.domain);
@@ -158,63 +160,22 @@ export class ConfigService {
 
         return Utils.errorResponse('Unsupported method', 405);
     }
-    async handleStatusRoute(): Promise<Response> {
-        if (!this.checkKV()) return this.kvMissingResponse();
-        const method = this.ctx.request.method.toUpperCase();
-        if (method === 'GET') {
-            const config = await this.getKVConfig();
-            return Utils.jsonResponse({ region: this.ctx.region, echEnabled: config.ech });
-        }
-        return Utils.errorResponse('Unsupported method', 405);
-    }
-    private checkKV() {
-        return this.ctx.kv !== null;
-    }
+
     private kvMissingResponse() {
         return Utils.errorResponse('KV Namespace not bound', 503);
     }
-    private async getKVConfig(): Promise<KVConfig> {
-        if (!this.checkKV()) return {};
-        try {
-            const kvData = await this.ctx.kv!.get(this.KV_KEY_CONFIG);
-            return kvData ? JSON.parse(kvData) as KVConfig : {};
-        } catch (error) {
-            console.error('Error fetching KV config:', error);
-            return {};
-        }
-    }
+
     private async saveKVConfig(config: KVConfig): Promise<void> {
-        if (!this.checkKV()) return;
+        if (!this.ctx.kv) return;
         try {
             await this.ctx.kv!.put(this.KV_KEY_CONFIG, JSON.stringify(config));
         } catch (error) {
             console.error('Error saving KV config:', error);
         }
     }
-    private async getDomainStorage(): Promise<DomainStorage> {
-        if (!this.checkKV()) {
-            return { builtin: [], custom: [] };
-        }
-        try {
-            const kvData = await this.ctx.kv!.get(this.KV_KEY_DOMAIN);
-            return kvData ? JSON.parse(kvData) as DomainStorage : { builtin: CF_BEST_DOMAINS.map(
-                item => (
-                    { domain: item.domain, name: item.name, enabled: true, type: 'builtin' } as DomainRecord
-                )
-            ), custom: [] };
-        } catch (error) {
-            console.error('Error fetching domain storage from KV:', error);
-        }
-        return {
-            builtin: CF_BEST_DOMAINS.map(
-                item => (
-                    { domain: item.domain, name: item.name, enabled: true, type: 'builtin' } as DomainRecord
-                )
-            ), custom: []
-        };
-    }
+
     private async saveDomainStorage(storage: DomainStorage): Promise<void> {
-        if (!this.checkKV()) return;
+        if (!this.ctx.kv) return;
         try {
             await this.ctx.kv!.put(this.KV_KEY_DOMAIN, JSON.stringify(storage));
         } catch (error) {
