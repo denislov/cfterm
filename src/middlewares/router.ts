@@ -38,6 +38,7 @@ export const router = async (ctx: WorkerContext, next: Function) => {
 			});
 		}
 		try {
+			return ctx.env.ASSETS.fetch(ctx.request);
 			const response = await fetch(CONSTANTS.INDEX_HTML_URL, {
 				headers: { 'User-Agent': 'Cloudflare-Worker/1.0' },
 				cf: { cacheTtl: CONSTANTS.HTML_CACHE_TTL, cacheEverything: true },

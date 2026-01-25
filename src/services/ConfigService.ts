@@ -76,7 +76,8 @@ export class ConfigService {
                     port: body.port || 443,
                     enabled: true,
                     addedAt: new Date().toISOString(),
-                    type: 'custom'
+                    type: 'custom',
+                    backupArg: body.backupArg
                 };
                 storage.custom.push(newDomain);
                 await this.saveDomainStorage(storage);
