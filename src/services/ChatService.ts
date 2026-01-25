@@ -39,7 +39,7 @@ export class ChatService {
 			[
 				3,
 				async (_parsedRequest, param) => {
-					const {address, port} = Utils.parseAddress(param, 443);
+					const { address, port } = Utils.parseAddress(param, 443);
 					return this.createConnect(address, port!);
 				},
 			],
@@ -60,15 +60,15 @@ export class ChatService {
 		const readable = this.makeReadableStream(serverSock, earlyData);
 
 		let tcpSocket: Socket | null = null;
-		let messageHandler: ((chunk: Uint8Array) => void) | undefined;
+		let remoteWriter: WritableStreamDefaultWriter | undefined;
 
 		const closeSocket = () => {
-			if (!earlyData) {
+			if (tcpSocket) {
 				try {
-					tcpSocket?.close();
+					tcpSocket.close();
 				} catch {}
 				try {
-					serverSock?.close();
+					Utils.closeSocketQuietly(serverSock);
 				} catch {}
 			}
 		};
@@ -80,8 +80,9 @@ export class ChatService {
 						if (isDnsQuery) {
 							return await this.forwardUDP(u8chunk, serverSock, null);
 						}
-						if (messageHandler) {
-							return messageHandler(chunk);
+						if (remoteWriter) {
+							await remoteWriter.write(u8chunk);
+							return;
 						}
 
 						if (!protocolType) {
@@ -95,7 +96,6 @@ export class ChatService {
 										else throw new Error(ERRORS.E_UDP_DNS_ONLY);
 									}
 									const respHeader = new Uint8Array([version![0], 0]);
-									serverSock.send(respHeader);
 									const rawData = u8chunk.subarray(rawIndex);
 
 									if (isDnsQuery) return this.forwardUDP(rawData, serverSock, respHeader);
@@ -111,26 +111,31 @@ export class ChatService {
 										closeSocket();
 										return;
 									}
-									const tcpWriter = tcpSocket.writable.getWriter();
+									remoteWriter = tcpSocket.writable.getWriter();
 
 									// 写入头部携带的 Payload
 									if (rawData.byteLength) {
-										await tcpWriter.write(rawData);
+										await remoteWriter.write(rawData);
 									}
 
 									// 锁定状态：后续数据直接透传
-									messageHandler = (data) => tcpWriter.write(data);
-									this.manualPipe(tcpSocket.readable, serverSock);
+									this.pipTcpToWs(tcpSocket.readable, serverSock, respHeader);
 									return;
 								}
 							}
 							throw new Error('Invalid protocol or authentication failed');
 						}
 					},
+					close: () => {console.info("close websocket");remoteWriter?.releaseLock();closeSocket()},
+					abort: () => {
+						remoteWriter?.releaseLock();
+						closeSocket();
+					},
 				}),
 			)
 			.catch((err) => {
 				console.error('Stream Error：', err.message);
+				closeSocket();
 			});
 
 		return new Response(null, {
@@ -308,6 +313,7 @@ export class ChatService {
 				const executor = this.strategyExecutorMap.get(item.type);
 				if (executor) {
 					const socket = await executor(parsedRequest, item.param || '');
+					console.info('type: ', item, socket);
 					if (socket) return socket;
 				}
 			} catch {
@@ -317,63 +323,30 @@ export class ChatService {
 		return null;
 	}
 
-	// [优化] 安全的 Buffer 大小，保留 4KB 余量
-
-	/**
-	 * 手动实现的 pipeTo，包含 buffer 逻辑
-	 * 优化点：使用 subarray 避免内存复制
-	 */
-	async manualPipe(readable: ReadableStream, writable: WebSocket) {
-		let buffer = new Uint8Array(CONSTANTS.BUFFER_SIZE);
-		let offset = 0;
-		let timerId: ReturnType<typeof setTimeout> | null = null;
-		let resume: ((value?: unknown) => void) | null = null;
-
-		const flushBuffer = () => {
-			if (offset > 0) {
-				// [优化] 零拷贝发送
-				writable.send(buffer.subarray(0, offset));
-				offset = 0;
-			}
-			if (timerId) {
-				clearTimeout(timerId);
-				timerId = null;
-			}
-			if (resume) {
-				resume();
-				resume = null;
-			}
-		};
-
-		const reader = readable.getReader();
-		try {
-			while (true) {
-				const { done, value: chunk } = await reader.read();
-				if (done) break;
-
-				// [优化] 大包直接发送，不进入 Buffer
-				if (chunk.length > 4096 || offset + chunk.length > CONSTANTS.BUFFER_SIZE) {
-					flushBuffer(); // 清空旧的
-					writable.send(chunk);
-				} else {
-					// 小包合并
-					buffer.set(chunk, offset);
-					offset += chunk.length;
-
-					if (!timerId) {
-						timerId = setTimeout(flushBuffer, CONSTANTS.FLUSH_TIME);
-					}
-
-					// 背压控制
-					if (offset > CONSTANTS.SAFE_BUFFER_SIZE) {
-						await new Promise((resolve) => (resume = resolve));
-					}
-				}
-			}
-		} finally {
-			flushBuffer();
-			reader.releaseLock();
-		}
+	async pipTcpToWs(readable: ReadableStream, ws: WebSocket, respHeader: Uint8Array | null = null) {
+		let header = respHeader;
+		await readable
+			.pipeTo(
+				new WritableStream({
+					async write(chunk, controller) {
+						console.info('ws state:', ws.readyState);
+						console.info("header: ", header)
+						if (ws.readyState !== 1) {
+							controller.error(ERRORS.E_WS_NOT_OPEN);
+						}
+						if (header) {
+							ws.send(await new Blob([header, chunk]).arrayBuffer());
+							header = null;
+						} else {
+							ws.send(chunk);
+						}
+					},
+					abort(reason) {},
+				}),
+			)
+			.catch((error) => {
+				Utils.closeSocketQuietly(ws);
+			});
 	}
 
 	makeReadableStream(socket: WebSocket, earlyDataHeader: string) {

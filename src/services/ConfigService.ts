@@ -72,7 +72,7 @@ export class ConfigService {
                 // 检查重复
                 const exists = [
                     ...storage.builtin, ...storage.custom
-                ].some(d => d.domain === body.domain);
+                ].some(d => d.name === body.name);
                 if (exists) {
                     return Utils.errorResponse('域名已存在', 400);
                 }
