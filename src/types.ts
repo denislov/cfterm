@@ -7,6 +7,7 @@ export interface DomainItem {
     name: string;
     domain: string;
     port?: number;
+    flag?: string;
 }
 
 export interface NodeInfo {
@@ -17,20 +18,31 @@ export interface NodeInfo {
     region?: string;
     user?: string;
     wsParams?: URLSearchParams;
+    pathArgs?: string;
 }
-// links.push(`${proto}://${user}@${item.ip}:${port}?${wsParams.toString()}#${wsNodeName}`);
-  
 
-export interface ProtocolHeader {
-    hasError: boolean;
-    message?: string;
-    addressType: ADDRESS_TYPE;
-    address?: string;
-    port?: number;
-    version?: Uint8Array;
-    isUDP?: boolean;
-    rawHeaderLength?: number;
+export interface ParsedRequest {
+    addrType: ADDRESS_TYPE;
+    hostname: string;
+    dataOffset: number;
+    port: number;
 }
+
+// 定义认证/代理参数结构
+export interface AuthParams {
+    username?: string;
+    password?: string;
+    hostname: string;
+    port: number;
+}
+
+// 代理策略列表项结构
+export interface StrategyItem {
+    type: number;
+    param?: string;
+}
+
+export type StrategyFn = (req: ParsedRequest, param: string) => Promise<Socket | null>;
 
 export interface KVConfig {
     /**
@@ -70,6 +82,7 @@ export interface KVConfig {
     customECHDomain?: string;
     // ECH 配置字符串 (通常由后端生成或手动填入)
     echConfig?: string;
+    custBackIPs?: DomainItem[];
 
     /**
      * === SOCKS5 代理/回退配置 ===
@@ -100,6 +113,7 @@ export interface DomainRecord {
     enabled?: boolean;
     addedAt?: string;
     type?: 'builtin' | 'custom';
+    backupArg?: string;
 }
 
 export interface DomainStorage {

@@ -193,7 +193,7 @@ export class ConfigService {
             const kvData = await this.ctx.kv!.get(this.KV_KEY_DOMAINs);
             return kvData ? JSON.parse(kvData) as DomainStorage : { builtin: CF_BEST_DOMAINS.map(
                 item => (
-                    { domain: item.domain, name: item.name, enabled: true, type: 'builtin' }
+                    { domain: item.domain, name: item.name, enabled: true, type: 'builtin' } as DomainRecord
                 )
             ), custom: [] };
         } catch (error) {
@@ -202,7 +202,7 @@ export class ConfigService {
         return {
             builtin: CF_BEST_DOMAINS.map(
                 item => (
-                    { domain: item.domain, name: item.name, enabled: true, type: 'builtin' }
+                    { domain: item.domain, name: item.name, enabled: true, type: 'builtin' } as DomainRecord
                 )
             ), custom: []
         };

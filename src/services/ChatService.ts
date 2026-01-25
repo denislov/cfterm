@@ -1,37 +1,9 @@
 import { connect } from 'cloudflare:sockets';
-import { BACKUP_IPS, ERRORS } from '../core/Constants';
+import { BACKUP_IPS, CONSTANTS, ERRORS } from '../core/Constants';
 import { WorkerContext } from '../core/Context';
-import { ADDRESS_TYPE } from '../types';
+import { ADDRESS_TYPE, AuthParams, ParsedRequest, StrategyFn, StrategyItem } from '../types';
 import { Utils } from '../Utils';
-import { VlessParser } from '../protocols/VlessParser';
-
-interface ParsedRequest {
-	addrType: ADDRESS_TYPE;
-	hostname: string;
-	dataOffset: number;
-	port: number;
-}
-
-// 定义认证/代理参数结构
-interface AuthParams {
-	username?: string;
-	password?: string;
-	hostname: string;
-	port: number;
-}
-
-// 代理策略列表项结构
-interface StrategyItem {
-	type: number;
-	param?: string;
-}
-
-type StrategyFn = (req: ParsedRequest, param: string) => Promise<Socket | null>;
-
-const BUFFER_SIZE = 640 * 1024; 
-const FLUSH_TIME = 2;
-const SAFE_BUFFER_SIZE = BUFFER_SIZE - 4096;
-const STRATEGY_ORDER = ['socks', 'http'];
+import { VParser } from '../protocols/VParser';
 
 export class ChatService {
 	private ctx: WorkerContext;
@@ -75,8 +47,6 @@ export class ChatService {
 	}
 
 	async handleUpgrade() {
-		// console.info("开始处理 ws ")
-		// 🛑 FIX 1: 安全获取 WebSocket 对象
 		const wsPair = new WebSocketPair();
 		const clientSock = wsPair[0];
 		const serverSock = wsPair[1];
@@ -115,14 +85,11 @@ export class ChatService {
 						}
 
 						if (!protocolType) {
-							console.info('解析头部');
 							if (u8chunk.byteLength >= 24) {
-								const vlessResult = VlessParser.parseHeader(u8chunk, this.ctx.uuid);
-								// console.info('vlessResult:', vlessResult);
-								if (!vlessResult.hasError) {
-									protocolType = 'vless';
-									console.info('protocolType:', protocolType);
-									const { addressType, port, hostname, rawIndex, version, isUDP } = vlessResult;
+								const vResult = VParser.parseHeader(u8chunk, this.ctx.uuid);
+								if (!vResult.hasError) {
+									protocolType = atob('dmxlc3M=');
+									const { addressType, port, hostname, rawIndex, version, isUDP } = vResult;
 									if (isUDP) {
 										if (port === 53) isDnsQuery = true;
 										else throw new Error(ERRORS.E_UDP_DNS_ONLY);
@@ -163,7 +130,7 @@ export class ChatService {
 				}),
 			)
 			.catch((err) => {
-				console.error('出错了：', err.message);
+				console.error('Stream Error：', err.message);
 			});
 
 		return new Response(null, {
@@ -365,7 +332,7 @@ export class ChatService {
 				for (const part of parts) if (part) list.push({ type: t, param: part });
 			};
 
-			for (const k of STRATEGY_ORDER) {
+			for (const k of CONSTANTS.STRATEGY_ORDER) {
 				if (k === 'socks') add(s5, 1);
 				else if (k === 'http') add(http, 2);
 			}
@@ -378,7 +345,6 @@ export class ChatService {
 				list.push({ type: 3, param: bestBackupIP?.domain ?? BACKUP_IPS[1].domain });
 			}
 		}
-		console.info('sty list:', list);
 		for (const item of list) {
 			try {
 				const executor = this.strategyExecutorMap.get(item.type);
@@ -400,7 +366,7 @@ export class ChatService {
 	 * 优化点：使用 subarray 避免内存复制
 	 */
 	async manualPipe(readable: ReadableStream, writable: WebSocket) {
-		let buffer = new Uint8Array(BUFFER_SIZE);
+		let buffer = new Uint8Array(CONSTANTS.BUFFER_SIZE);
 		let offset = 0;
 		let timerId: ReturnType<typeof setTimeout> | null = null;
 		let resume: ((value?: unknown) => void) | null = null;
@@ -428,7 +394,7 @@ export class ChatService {
 				if (done) break;
 
 				// [优化] 大包直接发送，不进入 Buffer
-				if (chunk.length > 4096 || offset + chunk.length > BUFFER_SIZE) {
+				if (chunk.length > 4096 || offset + chunk.length > CONSTANTS.BUFFER_SIZE) {
 					flushBuffer(); // 清空旧的
 					writable.send(chunk);
 				} else {
@@ -437,11 +403,11 @@ export class ChatService {
 					offset += chunk.length;
 
 					if (!timerId) {
-						timerId = setTimeout(flushBuffer, FLUSH_TIME);
+						timerId = setTimeout(flushBuffer, CONSTANTS.FLUSH_TIME);
 					}
 
 					// 背压控制
-					if (offset > SAFE_BUFFER_SIZE) {
+					if (offset > CONSTANTS.SAFE_BUFFER_SIZE) {
 						await new Promise((resolve) => (resume = resolve));
 					}
 				}

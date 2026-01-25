@@ -13,7 +13,7 @@ export interface VlessHeader {
 	message?: string;
 }
 
-export class VlessParser {
+export class VParser {
 	static parseHeader(chunk: Uint8Array, token: string): VlessHeader {
 		if (chunk.byteLength < 24) return { hasError: true, message: ERRORS.E_INVALID_DATA };
 		const version = new Uint8Array(chunk.subarray(0, 1));
@@ -34,7 +34,6 @@ export class VlessParser {
 			addrValIdx = addrIdx + 1,
 			hostname = '';
 		const addressType = new Uint8Array(chunk.subarray(addrIdx, addrValIdx))[0];
-        console.info('addressType', addressType);
 
 		switch (addressType) {
 			case ADDRESS_TYPE.IPV4:

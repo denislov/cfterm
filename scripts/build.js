@@ -6,7 +6,8 @@ const path = require('path');
 
 const ENTRY_POINT = path.join(__dirname, '../src/index.ts');
 const OUT_DIR = path.join(__dirname, '../dist');
-const OUT_FILE = path.join(OUT_DIR, 'worker.js');
+const OUT_FILE = path.join(OUT_DIR, '_worker.js');
+const OB_OUT_FILE = path.join(OUT_DIR, 'worker.js');
 
 async function build() {
     // 1. 确保输出目录存在
@@ -69,9 +70,9 @@ async function build() {
         }).getObfuscatedCode();
 
     // 5. 将混淆后的代码写回文件
-    fs.writeFileSync(OUT_FILE, obfuscatedCode, 'utf-8');
+    fs.writeFileSync(OB_OUT_FILE, obfuscatedCode, 'utf-8');
 
-    console.log('构建完成，输出文件：', OUT_FILE);
+    console.log('构建完成，输出文件：', OB_OUT_FILE);
 }
 build().catch((error) => {
     console.error('构建失败：', error);

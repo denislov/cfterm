@@ -2,7 +2,7 @@ import { KVConfig } from "../types";
 
 const CONSTANTS = {
 	DEFAULT_UUID: '351c9981-04b6-4103-aa4b-864aa9c91469',
-	KV_KEY_DOMAINs:'domains',
+	KV_KEY_DOMAINs: 'domains',
 	// 优选 IP API 地址
 	PREFERRED_IP_URL: 'https://raw.githubusercontent.com/qwer-search/bestip/refs/heads/main/kejilandbestip.txt',
 	// 订阅转换后端
@@ -13,7 +13,7 @@ const CONSTANTS = {
 		IPV4: /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/,
 		IPV6: /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/,
 		IPV6SHORT: /^::1$|^::$|^(?:[0-9a-fA-F]{1,4}:)*::(?:[0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$/,
-		DOMAIN: /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/
+		DOMAIN: /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/,
 	},
 	// HTML缓存TTL（秒）
 	HTML_CACHE_TTL: 3600,
@@ -35,9 +35,13 @@ const CONSTANTS = {
 		ech: true,
 		ae: true,
 		enableSocksDowngrade: true,
-		isSocksEnabled: false
+		isSocksEnabled: false,
 	} as KVConfig,
 	HEX_TABLE: Array.from({ length: 256 }, (v, i) => (i + 256).toString(16).slice(1)),
+	BUFFER_SIZE: 640 * 1024,
+	FLUSH_TIME: 2,
+	SAFE_BUFFER_SIZE: 640 * 1024 - 4096,
+	STRATEGY_ORDER: ['socks', 'http'],
 };
 
 const BACKUP_IPS = [
@@ -57,7 +61,10 @@ const BACKUP_IPS = [
 ];
 
 // 静态资源：直连域名列表
-const CF_BEST_DOMAINS = [{ name: "cloudflare.182682.xyz", domain: "cloudflare.182682.xyz" }];
+const CF_BEST_DOMAINS = [
+	{ name: '182682.xyz', domain: 'cloudflare.182682.xyz' },
+	{ name: 'JP-AI', domian: 'jp.111000.cc.cd' },
+];
 
 // 错误提示常量
 const ERRORS = {

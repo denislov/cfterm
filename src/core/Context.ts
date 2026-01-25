@@ -1,10 +1,10 @@
-import { DomainStorage, KVConfig, SSConfig } from "../types";
-import { Utils } from "../Utils";
-import { CF_BEST_DOMAINS, CONSTANTS } from "./Constants";
+import { DomainRecord, DomainStorage, KVConfig, SSConfig } from '../types';
+import { Utils } from '../Utils';
+import { CF_BEST_DOMAINS, CONSTANTS } from './Constants';
 
 export class WorkerContext {
 	readonly request: Request;
-	readonly env: Env
+	readonly env: Env;
 	readonly executionCtx: ExecutionContext;
 	readonly url: URL;
 	readonly uuid: string;
@@ -43,10 +43,9 @@ export class WorkerContext {
 			if (!configData) {
 				this.kv.put('c', JSON.stringify(CONSTANTS.KV_CONFIG_DEFAULTS));
 				return;
-			};
+			}
 
 			const configJson = JSON.parse(configData);
-
 			// 遍历配置项进行赋值
 			Object.entries(CONSTANTS.KV_CONFIG_DEFAULTS).forEach(([key, defaultValue]) => {
 				this.kvConfig[key] = this._parseBool(configJson[key], defaultValue as boolean);
@@ -63,26 +62,31 @@ export class WorkerContext {
 			// 解析 SOCKS 配置
 			this.socksConfig = Utils.parseSocksConfig(this.kvConfig.socksAddress || '');
 			this.fallbackAddress = this.kvConfig.fallbackAddress || '';
-
 		} catch (error) {
 			// 使用默认配置
 			console.warn('[KV] load config failed, using defaults', error);
 		}
 		try {
-            const kvData = await this.kv!.get(CONSTANTS.KV_KEY_DOMAINs);
-            this.kvDomain =  kvData ? JSON.parse(kvData) as DomainStorage : { builtin: CF_BEST_DOMAINS.map(
-                item => (
-                    { domain: item.domain, name: item.name, enabled: true, type: 'builtin' }
-                )
-            ), custom: [] };
-        } catch (error) {
-            console.error('Error fetching domain storage from KV:', error);
-			this.kvDomain = { builtin: CF_BEST_DOMAINS.map(
-                item => (
-                    { domain: item.domain, name: item.name, enabled: true, type: 'builtin' }
-                )
-            ), custom: [] };
-        }
+			const kvData = await this.kv!.get(CONSTANTS.KV_KEY_DOMAINs);
+			if (kvData) {
+				this.kvDomain = JSON.parse(kvData);
+			} else {
+				const domainData: DomainStorage = {
+					builtin: CF_BEST_DOMAINS.map(
+						(item) => ({ domain: item.domain, name: item.name, enabled: true, type: 'builtin' }) as DomainRecord,
+					),
+					custom: [],
+				};
+				this.kv!.put(CONSTANTS.KV_KEY_DOMAINs, JSON.stringify(domainData));
+				this.kvDomain = domainData;
+			}
+		} catch (error) {
+			console.error('Error fetching domain storage from KV:', error);
+			this.kvDomain = {
+				builtin: CF_BEST_DOMAINS.map((item) => ({ domain: item.domain, name: item.name, enabled: true, type: 'builtin' }) as DomainRecord),
+				custom: [],
+			};
+		}
 	}
 
 	/**
@@ -95,11 +99,28 @@ export class WorkerContext {
 			if (cfCountry) {
 				// 使用 Map 替代对象
 				const countryToRegion = new Map<string, string>([
-					['US', 'US'], ['SG', 'SG'], ['JP', 'JP'], ['KR', 'KR'],
-					['DE', 'DE'], ['SE', 'SE'], ['NL', 'NL'], ['FI', 'FI'], ['GB', 'GB'],
-					['CN', 'SG'], ['TW', 'JP'], ['AU', 'SG'], ['CA', 'US'],
-					['FR', 'DE'], ['IT', 'DE'], ['ES', 'DE'], ['CH', 'DE'],
-					['AT', 'DE'], ['BE', 'NL'], ['DK', 'SE'], ['NO', 'SE'], ['IE', 'GB']
+					['US', 'US'],
+					['SG', 'SG'],
+					['JP', 'JP'],
+					['KR', 'KR'],
+					['DE', 'DE'],
+					['SE', 'SE'],
+					['NL', 'NL'],
+					['FI', 'FI'],
+					['GB', 'GB'],
+					['CN', 'SG'],
+					['TW', 'JP'],
+					['AU', 'SG'],
+					['CA', 'US'],
+					['FR', 'DE'],
+					['IT', 'DE'],
+					['ES', 'DE'],
+					['CH', 'DE'],
+					['AT', 'DE'],
+					['BE', 'NL'],
+					['DK', 'SE'],
+					['NO', 'SE'],
+					['IE', 'GB'],
 				]);
 
 				// 直接使用 get 方法，不需要类型断言
@@ -110,14 +131,13 @@ export class WorkerContext {
 			}
 
 			return 'SG';
-
 		} catch (error) {
 			return 'SG';
 		}
 	}
 
-	_parseBool(val: string, defaultVal: boolean): boolean {
+	_parseBool(val: any, defaultVal: boolean): boolean {
 		if (val === undefined || val === '') return defaultVal;
-		return val === 'yes' || val === 'true';
+		return val === 'yes' || val === 'true' || val === true;
 	}
 }

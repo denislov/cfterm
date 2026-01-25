@@ -24,11 +24,11 @@ export const authHandler = async (ctx: WorkerContext, next: () => Promise<Respon
         ctx.isAuth = true;
     }
     // 公开路由，不需要鉴权
-    if (path === '/' || path === '/api/status') {
-        return next();
-    } else if (!ctx.isAuth) {
-        return Utils.jsonResponse({ error: 'Unauthorized: Invalid token' }, 403);
-    }
+    if (path === '/' || path === '/api/status' || path === '/v1/models') {
+			return next();
+		} else if (!ctx.isAuth) {
+			return Utils.jsonResponse({ error: 'Unauthorized: Invalid token' }, 403);
+		}
 
     // 继续处理下一个中间件或请求处理程序
     return next();
