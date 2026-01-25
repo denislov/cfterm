@@ -5,9 +5,15 @@ import { Utils } from '../Utils';
 export class SubService {
 	ctx: WorkerContext;
 	// 定义节点类型
+	echConfig?: string;
 
 	constructor(ctx: WorkerContext) {
 		this.ctx = ctx;
+		if (ctx.kvConfig?.ech) {
+			const dnsServer = ctx.kvConfig.customDNS || 'https://ds.asenser.cn/v1/chat/completions';
+			const echDomain = ctx.kvConfig.customECHDomain || 'cloudflare-ech.com';
+			this.echConfig = `${echDomain}+${dnsServer}`;
+		}
 	}
 
 	async handle() {
@@ -34,11 +40,9 @@ export class SubService {
 		};
 
 		// 添加ECH状态到响应头
-		if (this.ctx.kvConfig?.ech) {
+		if (this.echConfig) {
 			responseHeaders['X-ECH-Status'] = 'ENABLED';
-			if (this.ctx.kvConfig.echConfig) {
-				responseHeaders['X-ECH-Config-Length'] = String(this.ctx.kvConfig.echConfig.length);
-			}
+			responseHeaders['X-ECH-Config-Length'] = String(this.echConfig.length);
 		}
 
 		return new Response(subscriptionContent, {
@@ -58,17 +62,10 @@ export class SubService {
 		const finalLinks: NodeInfo[] = [];
 		const workerDomain = this.ctx.url.hostname;
 
-		// 如果启用了ECH，使用自定义值
-		let echConfig: string | null = null;
-		if (kvConfig?.ech) {
-			const dnsServer = kvConfig.customDNS || 'https://ds.asenser.cn/v1/chat/completions';
-			const echDomain = kvConfig.customECHDomain || 'cloudflare-ech.com';
-			echConfig = `${echDomain}+${dnsServer}`;
-		}
         const proto = atob('dmxlc3M=');
 		const addNodesFromList = (list: NodeInfo[]) => {
 			if (kvConfig?.ev) {
-				finalLinks.push(...this.generateLinksFromSource(list, this.ctx.uuid, workerDomain, echConfig));
+				finalLinks.push(...this.generateLinksFromSource(list, this.ctx.uuid, workerDomain, this.echConfig));
 			}
 		};
 		const nativeList: NodeInfo[] = [{ ip: workerDomain, name: '原生地址', port: 443, type: proto }];
@@ -76,7 +73,7 @@ export class SubService {
 
 		this.ctx.kvDomain?.builtin.forEach((item) => {
             if (this.ctx.region != 'CUSTOM') {
-                const bestBackupIP = Utils.getBestBackupIP(this.ctx.region, this.ctx);
+                const bestBackupIP = Utils.getBestBackupIP(this.ctx);
                 item.backupArg = bestBackupIP?.domain ? `&${bestBackupIP?.domain}`:undefined;
             }
 			const cfList: NodeInfo[] = [{ ip: item.domain, name: item.name!, port: 443, type: proto, pathArgs: item.backupArg }];
@@ -104,8 +101,8 @@ export class SubService {
 		list: NodeInfo[],
 		user: string,
 		workerDomain: string,
-		echConfig: string | null = null,
-		addonPath: string | null = null,
+		echConfig?: string,
+		addonPath?: string,
 	) {
 		const defaultHttpsPorts = [443, 2053, 2083, 2087, 2096, 8443];
 

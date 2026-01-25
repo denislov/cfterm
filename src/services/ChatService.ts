@@ -25,22 +25,22 @@ export class ChatService {
 			[
 				1,
 				async ({ addrType, port, hostname }, param) => {
-					const socksAuth = this.parseAuthString(param);
+					const socksAuth = Utils.parseAuthString(param);
 					return this.connectViaSocksProxy(addrType, hostname, port, socksAuth);
 				},
 			],
 			[
 				2,
 				async ({ port, hostname }, param) => {
-					const httpAuth = this.parseAuthString(param);
+					const httpAuth = Utils.parseAuthString(param);
 					return this.connectViaHttpProxy(port, httpAuth, hostname);
 				},
 			],
 			[
 				3,
 				async (_parsedRequest, param) => {
-					const [host, portStr] = this.parseHostPort(param, 443);
-					return this.createConnect(host, Number(portStr));
+					const {address, port} = Utils.parseAddress(param, 443);
+					return this.createConnect(address, port!);
 				},
 			],
 		]);
@@ -137,48 +137,6 @@ export class ChatService {
 			status: 101,
 			webSocket: clientSock,
 		});
-	}
-
-	// =========================================
-	// 2. 辅助函数
-	// =========================================
-
-	parseHostPort(addr: string, defaultPort: number): [string, string] {
-		// 处理 IPv6 [::1]:80 格式
-		if (addr.charCodeAt(0) === 91) {
-			// '['
-			const sepIndex = addr.indexOf(']:');
-			if (sepIndex !== -1) return [addr.substring(0, sepIndex + 1), addr.substring(sepIndex + 2)];
-			return [addr, defaultPort.toString()];
-		}
-		// 处理特殊 .tp 域名逻辑 (保留原逻辑)
-		const tpIndex = addr.indexOf('.tp');
-		const lastColon = addr.lastIndexOf(':');
-		if (tpIndex !== -1 && lastColon === -1) {
-			return [addr, addr.substring(tpIndex + 3, addr.indexOf('.', tpIndex + 3))];
-		}
-		if (lastColon === -1) return [addr, defaultPort.toString()];
-		return [addr.substring(0, lastColon), addr.substring(lastColon + 1)];
-	}
-
-	parseAuthString(authParam: string): AuthParams {
-		let username, password, hostStr;
-		const atIndex = authParam.lastIndexOf('@');
-		if (atIndex === -1) {
-			hostStr = authParam;
-		} else {
-			const cred = authParam.substring(0, atIndex);
-			hostStr = authParam.substring(atIndex + 1);
-			const colonIndex = cred.indexOf(':');
-			if (colonIndex === -1) {
-				username = cred;
-			} else {
-				username = cred.substring(0, colonIndex);
-				password = cred.substring(colonIndex + 1);
-			}
-		}
-		const [hostname, portStr] = this.parseHostPort(hostStr, 1080);
-		return { username, password, hostname, port: Number(portStr) };
 	}
 
 	// =========================================
@@ -309,7 +267,7 @@ export class ChatService {
 		const paramRegex = /(gs5|s5all|ghttp|httpall|s5|socks|http|ip)(?:=|:\/\/|%3A%2F%2F)([^&]+)|(proxyall|globalproxy)/gi;
 
 		if (clean.length < 6) {
-			list.push({ type: 0 }, { type: 3, param: (await this.getBestBackupIP())?.domain ?? BACKUP_IPS[0].domain });
+			list.push({ type: 0 }, { type: 3, param: Utils.getBestBackupIP(this.ctx)?.domain ?? BACKUP_IPS[0].domain });
 		} else {
 			let m;
 			const p: Record<string, string | boolean> = Object.create(null);
@@ -341,7 +299,7 @@ export class ChatService {
 				if (!list.length) list.push({ type: 0 });
 			} else {
 				add(ip, 3);
-				const bestBackupIP = await this.getBestBackupIP(this.ctx.region);
+				const bestBackupIP = Utils.getBestBackupIP(this.ctx);
 				list.push({ type: 3, param: bestBackupIP?.domain ?? BACKUP_IPS[1].domain });
 			}
 		}
@@ -464,49 +422,5 @@ export class ChatService {
 				}),
 			);
 		} catch (error) {}
-	}
-
-	async getBestBackupIP(workerRegion = '') {
-		if (BACKUP_IPS.length === 0) {
-			return null;
-		}
-
-		const availableIPs = BACKUP_IPS.map((ip) => ({ ...ip, available: true }));
-
-		if (this.ctx.enableRegionMatching && workerRegion) {
-			const sortedIPs = this.getSmartRegionSelection(workerRegion, availableIPs);
-			if (sortedIPs.length > 0) {
-				const selectedIP = sortedIPs[0];
-				return selectedIP;
-			}
-		}
-
-		const selectedIP = availableIPs[0];
-		return selectedIP;
-	}
-	getSmartRegionSelection(
-		workerRegion: string,
-		availableIPs: {
-			available: boolean;
-			domain: string;
-			region: string;
-			regionCode: string;
-			port: number;
-		}[],
-	) {
-		if (!this.ctx.enableRegionMatching || !workerRegion) {
-			return availableIPs;
-		}
-
-		const priorityRegions = Utils.getAllRegionsByPriority(workerRegion);
-
-		const sortedIPs = [];
-
-		for (const region of priorityRegions) {
-			const regionIPs = availableIPs.filter((ip) => ip.regionCode === region);
-			sortedIPs.push(...regionIPs);
-		}
-
-		return sortedIPs;
 	}
 }

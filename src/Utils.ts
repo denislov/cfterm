@@ -1,6 +1,6 @@
-import { BACKUP_IPS, CONSTANTS, ERRORS } from "./core/Constants";
-import { WorkerContext } from "./core/Context";
-import { SSConfig } from "./types";
+import { BACKUP_IPS, CONSTANTS, ERRORS } from './core/Constants';
+import { WorkerContext } from './core/Context';
+import { AuthParams } from './types';
 
 export class Utils {
 	// ==========================================
@@ -26,20 +26,38 @@ export class Utils {
 	/**
 	 * 解析 "host:port" 或 "[ipv6]:port" 或 "host" 字符串
 	 */
-
-	static parseAddress(input: string) {
-		if (!input) return {
-			address: '',
-			port: null
-		};
-
+	static parseAuthString(authParam: string): AuthParams {
+		let username, password, hostStr;
+		const atIndex = authParam.lastIndexOf('@');
+		if (atIndex === -1) {
+			hostStr = authParam;
+		} else {
+			const cred = authParam.substring(0, atIndex);
+			hostStr = authParam.substring(atIndex + 1);
+			const colonIndex = cred.indexOf(':');
+			if (colonIndex === -1) {
+				username = cred;
+			} else {
+				username = cred.substring(0, colonIndex);
+				password = cred.substring(colonIndex + 1);
+			}
+		}
+		const { address, port } = Utils.parseAddress(hostStr, 1080);
+		return { username, password, hostname: address, port: port! };
+	}
+	static parseAddress(input: string, port?: number) {
+		if (!input)
+			return {
+				address: '',
+				port: port ?? null,
+			};
 		// 处理 IPv6 [::1]:8080 格式
 		if (input.includes('[') && input.includes(']')) {
 			const match = input.match(/^\[([^\]]+)\](?::(\d+))?$/);
 			if (match) {
 				return {
 					address: match[1],
-					port: match[2] ? parseInt(match[2], 10) : null
+					port: match[2] ? parseInt(match[2], 10) : (port ?? null),
 				};
 			}
 		}
@@ -53,85 +71,35 @@ export class Utils {
 			if (!isNaN(port) && port > 0 && port <= 65535) {
 				return {
 					address,
-					port
+					port,
 				};
 			}
 		}
 
 		return {
 			address: input,
-			port: null
+			port: port ?? null,
 		};
 	}
 
-	static parseSocksConfig(configStr: string) {
-		if (!configStr) return undefined;
-		try {
-			let [latter, former] = configStr.split("@").reverse();
-			let username = '', password = '', hostname, socksPort;
-
-			if (former) {
-				const formers = former.split(":");
-				if (formers.length !== 2) throw new Error('Invalid Socks Auth');
-				[username, password] = formers;
-			}
-
-			const latters = latter.split(":");
-			socksPort = Number(latters.pop());
-			if (isNaN(socksPort)) throw new Error('Invalid Socks Port');
-
-			hostname = latters.join(":");
-			return {
-				username,
-				password,
-				hostname,
-				socksPort
-			} as SSConfig;
-		} catch (e) {
-			throw e;
-		}
-	}
-	static parseAddressAndPort(input: string) {
-		if (input.includes('[') && input.includes(']')) {
-			const match = input.match(/^\[([^\]]+)\](?::(\d+))?$/);
-			if (match) {
-				return {
-					address: match[1],
-					port: match[2] ? parseInt(match[2], 10) : null
-				};
-			}
-		}
-
-		const lastColonIndex = input.lastIndexOf(':');
-		if (lastColonIndex > 0) {
-			const address = input.substring(0, lastColonIndex);
-			const portStr = input.substring(lastColonIndex + 1);
-			const port = parseInt(portStr, 10);
-
-			if (!isNaN(port) && port > 0 && port <= 65535) {
-				return { address, port };
-			}
-		}
-
-		return { address: input, port: null };
-	}
 	// ==========================================
 	// 3. 转换与格式化
 	// ==========================================
 
 	static base64ToArray(b64Str: string) {
-		if (!b64Str) return {
-			error: null
-		};
+		if (!b64Str)
+			return {
+				error: null,
+			};
 		try {
 			b64Str = b64Str.replace(/-/g, '+').replace(/_/g, '/');
 			return {
 				earlyData: Uint8Array.from(atob(b64Str), (c) => c.charCodeAt(0)),
-				error: null
+				error: null,
 			};
 		} catch (error) {
 			return {
-				error
+				error,
 			};
 		}
 	}
@@ -143,12 +111,12 @@ export class Utils {
 		if (data instanceof ArrayBuffer) return new Uint8Array(data);
 
 		// 某些环境 event.data 可能是 Blob
-		if (typeof Blob !== "undefined" && data instanceof Blob) {
+		if (typeof Blob !== 'undefined' && data instanceof Blob) {
 			return new Uint8Array(await data.arrayBuffer());
 		}
 
 		// 不期望出现 string：直接编码（或你也可选择 throw）
-		if (typeof data === "string") {
+		if (typeof data === 'string') {
 			return new TextEncoder().encode(data);
 		}
 
@@ -159,7 +127,11 @@ export class Utils {
 
 		throw new Error(ERRORS.E_INVALID_DATA);
 	}
-	static closeSocketQuietly(socket: WebSocket) { try { if (socket.readyState === 1 || socket.readyState === 2) socket.close(); } catch (error) { } }
+	static closeSocketQuietly(socket: WebSocket) {
+		try {
+			if (socket.readyState === 1 || socket.readyState === 2) socket.close();
+		} catch (error) {}
+	}
 	static getNearbyRegions(region: string) {
 		const nearby: Record<string, string[]> = {
 			US: ['SG', 'JP', 'KR'],
@@ -180,63 +152,99 @@ export class Utils {
 		const nearbyRegions = Utils.getNearbyRegions(region);
 		const allRegions = ['US', 'SG', 'JP', 'KR', 'DE', 'SE', 'NL', 'FI', 'GB'];
 
-		return [region, ...nearbyRegions, ...allRegions.filter(r => r !== region && !nearbyRegions.includes(r))];
+		return [region, ...nearbyRegions, ...allRegions.filter((r) => r !== region && !nearbyRegions.includes(r))];
 	}
 	/**
 	 * 将字节数组转为 UUID 字符串 (xxxxxxxx-xxxx-xxxx-...)
 	 */
 	static uuidFromBytes(arr: Uint8Array, offset = 0) {
-		const hexTable = Array.from({
-			length: 256
-		}, (v, i) => (i + 256).toString(16).slice(1));
+		const hexTable = Array.from(
+			{
+				length: 256,
+			},
+			(v, i) => (i + 256).toString(16).slice(1),
+		);
 		const id = (
-			hexTable[arr[offset]] + hexTable[arr[offset + 1]] + hexTable[arr[offset + 2]] + hexTable[arr[offset + 3]] + "-" +
-			hexTable[arr[offset + 4]] + hexTable[arr[offset + 5]] + "-" +
-			hexTable[arr[offset + 6]] + hexTable[arr[offset + 7]] + "-" +
-			hexTable[arr[offset + 8]] + hexTable[arr[offset + 9]] + "-" +
-			hexTable[arr[offset + 10]] + hexTable[arr[offset + 11]] + hexTable[arr[offset + 12]] + hexTable[arr[offset + 13]] + hexTable[arr[offset + 14]] + hexTable[arr[offset + 15]]
+			hexTable[arr[offset]] +
+			hexTable[arr[offset + 1]] +
+			hexTable[arr[offset + 2]] +
+			hexTable[arr[offset + 3]] +
+			'-' +
+			hexTable[arr[offset + 4]] +
+			hexTable[arr[offset + 5]] +
+			'-' +
+			hexTable[arr[offset + 6]] +
+			hexTable[arr[offset + 7]] +
+			'-' +
+			hexTable[arr[offset + 8]] +
+			hexTable[arr[offset + 9]] +
+			'-' +
+			hexTable[arr[offset + 10]] +
+			hexTable[arr[offset + 11]] +
+			hexTable[arr[offset + 12]] +
+			hexTable[arr[offset + 13]] +
+			hexTable[arr[offset + 14]] +
+			hexTable[arr[offset + 15]]
 		).toLowerCase();
 		return id;
 	}
 	static formatIdentifier(arr: any, offset = 0) {
-		const id = (CONSTANTS.HEX_TABLE[arr[offset]] + CONSTANTS.HEX_TABLE[arr[offset + 1]] + CONSTANTS.HEX_TABLE[arr[offset + 2]] + CONSTANTS.HEX_TABLE[arr[offset + 3]] + "-" + CONSTANTS.HEX_TABLE[arr[offset + 4]] + CONSTANTS.HEX_TABLE[arr[offset + 5]] + "-" + CONSTANTS.HEX_TABLE[arr[offset + 6]] + CONSTANTS.HEX_TABLE[arr[offset + 7]] + "-" + CONSTANTS.HEX_TABLE[arr[offset + 8]] + CONSTANTS.HEX_TABLE[arr[offset + 9]] + "-" + CONSTANTS.HEX_TABLE[arr[offset + 10]] + CONSTANTS.HEX_TABLE[arr[offset + 11]] + CONSTANTS.HEX_TABLE[arr[offset + 12]] + CONSTANTS.HEX_TABLE[arr[offset + 13]] + CONSTANTS.HEX_TABLE[arr[offset + 14]] + CONSTANTS.HEX_TABLE[arr[offset + 15]]).toLowerCase();
+		const id = (
+			CONSTANTS.HEX_TABLE[arr[offset]] +
+			CONSTANTS.HEX_TABLE[arr[offset + 1]] +
+			CONSTANTS.HEX_TABLE[arr[offset + 2]] +
+			CONSTANTS.HEX_TABLE[arr[offset + 3]] +
+			'-' +
+			CONSTANTS.HEX_TABLE[arr[offset + 4]] +
+			CONSTANTS.HEX_TABLE[arr[offset + 5]] +
+			'-' +
+			CONSTANTS.HEX_TABLE[arr[offset + 6]] +
+			CONSTANTS.HEX_TABLE[arr[offset + 7]] +
+			'-' +
+			CONSTANTS.HEX_TABLE[arr[offset + 8]] +
+			CONSTANTS.HEX_TABLE[arr[offset + 9]] +
+			'-' +
+			CONSTANTS.HEX_TABLE[arr[offset + 10]] +
+			CONSTANTS.HEX_TABLE[arr[offset + 11]] +
+			CONSTANTS.HEX_TABLE[arr[offset + 12]] +
+			CONSTANTS.HEX_TABLE[arr[offset + 13]] +
+			CONSTANTS.HEX_TABLE[arr[offset + 14]] +
+			CONSTANTS.HEX_TABLE[arr[offset + 15]]
+		).toLowerCase();
 		// 修复：应该是如果不是有效UUID才抛出错误
 		if (!Utils.isUuid(id)) throw new TypeError(ERRORS.E_INVALID_ID_STR);
 		return id;
 	}
-	static getSmartRegionSelection(workerRegion: string, availableIPs: {
-		available: boolean;
-		domain: string;
-		region: string;
-		regionCode: string;
-		port: number;
-	}[], ctx: WorkerContext) {
-
-		if (!ctx.enableRegionMatching || !workerRegion) {
-			return availableIPs;
-		}
-
+	static getSmartRegionSelection(
+		workerRegion: string,
+		availableIPs: {
+			available: boolean;
+			domain: string;
+			region: string;
+			regionCode: string;
+			port: number;
+		}[],
+	) {
 		const priorityRegions = Utils.getAllRegionsByPriority(workerRegion);
 
 		const sortedIPs = [];
 
 		for (const region of priorityRegions) {
-			const regionIPs = availableIPs.filter(ip => ip.regionCode === region);
+			const regionIPs = availableIPs.filter((ip) => ip.regionCode === region);
 			sortedIPs.push(...regionIPs);
 		}
 
 		return sortedIPs;
 	}
-	static getBestBackupIP(workerRegion = '', ctx: WorkerContext) {
-
+	static getBestBackupIP(ctx: WorkerContext) {
 		if (BACKUP_IPS.length === 0) {
 			return null;
 		}
 
-		const availableIPs = BACKUP_IPS.map(ip => ({ ...ip, available: true }));
+		const availableIPs = BACKUP_IPS.map((ip) => ({ ...ip, available: true }));
 
-		if (ctx.enableRegionMatching && workerRegion) {
-			const sortedIPs = Utils.getSmartRegionSelection(workerRegion, availableIPs, ctx);
+		if (ctx.enableRegionMatching && ctx.region) {
+			const sortedIPs = Utils.getSmartRegionSelection(ctx.region, availableIPs);
 			if (sortedIPs.length > 0) {
 				const selectedIP = sortedIPs[0];
 				return selectedIP;
@@ -255,15 +263,18 @@ export class Utils {
 			status,
 			headers: {
 				'Content-Type': 'application/json; charset=utf-8',
-				...headers
-			}
+				...headers,
+			},
 		});
 	}
 
 	static errorResponse(message: string, status = 400) {
-		return Utils.jsonResponse({
-			error: message
-		}, status);
+		return Utils.jsonResponse(
+			{
+				error: message,
+			},
+			status,
+		);
 	}
 	static _rightRotate(value: number, amount: number): number {
 		return (value >>> amount) | (value << (32 - amount));
@@ -277,20 +288,15 @@ export class Utils {
 		const data = encoder.encode(text);
 
 		const K = [
-			0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-			0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-			0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-			0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-			0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-			0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-			0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-			0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+			0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be,
+			0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa,
+			0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85,
+			0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
+			0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f,
+			0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 		];
 
-		let H = [
-			0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939,
-			0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4
-		];
+		let H = [0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939, 0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4];
 
 		const msgLen = data.length;
 		const bitLen = msgLen * 8;
@@ -351,7 +357,7 @@ export class Utils {
 				((H[i] >>> 24) & 0xff).toString(16).padStart(2, '0'),
 				((H[i] >>> 16) & 0xff).toString(16).padStart(2, '0'),
 				((H[i] >>> 8) & 0xff).toString(16).padStart(2, '0'),
-				(H[i] & 0xff).toString(16).padStart(2, '0')
+				(H[i] & 0xff).toString(16).padStart(2, '0'),
 			);
 		}
 

@@ -2,7 +2,8 @@ import { KVConfig } from "../types";
 
 const CONSTANTS = {
 	DEFAULT_UUID: '351c9981-04b6-4103-aa4b-864aa9c91469',
-	KV_KEY_DOMAINs: 'domains',
+	KV_KEY_DOMAIN: 'domains',
+	KV_KEY_CONFIG: 'c',
 	// 优选 IP API 地址
 	PREFERRED_IP_URL: 'https://raw.githubusercontent.com/qwer-search/bestip/refs/heads/main/kejilandbestip.txt',
 	// 订阅转换后端
@@ -24,18 +25,12 @@ const CONSTANTS = {
 		epi: false,
 		egi: false,
 		dkby: true,
-		ipv4: true,
-		ipv6: false,
-		ispMobile: false,
-		ispUnicom: true,
-		ispTelecom: true,
 		ev: true,
 		et: false,
 		ex: false,
 		ech: true,
-		ae: true,
-		enableSocksDowngrade: true,
-		isSocksEnabled: false,
+		customDNS: 'https://ds.asenser.cn/v1/chat/completions',
+		customECHDomain: 'cloudflare-ech.com',
 	} as KVConfig,
 	HEX_TABLE: Array.from({ length: 256 }, (v, i) => (i + 256).toString(16).slice(1)),
 	BUFFER_SIZE: 640 * 1024,

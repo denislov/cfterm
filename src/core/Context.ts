@@ -1,5 +1,4 @@
-import { DomainRecord, DomainStorage, KVConfig, SSConfig } from '../types';
-import { Utils } from '../Utils';
+import { DomainRecord, DomainStorage, KVConfig } from '../types';
 import { CF_BEST_DOMAINS, CONSTANTS } from './Constants';
 
 export class WorkerContext {
@@ -14,9 +13,7 @@ export class WorkerContext {
 	isAuth: boolean = false;
 	region: string;
 	kvConfig: KVConfig;
-	socksConfig?: SSConfig;
-	kvDomain?: DomainStorage;
-	fallbackAddress?: string;
+	kvDomain: DomainStorage;
 	state: Map<string, any>;
 
 	constructor(request: Request, env: Env, executionCtx: ExecutionContext) {
@@ -31,6 +28,10 @@ export class WorkerContext {
 		this.state = new Map<string, any>();
 		// 初始化默认 kvConfig
 		this.kvConfig = { ...CONSTANTS.KV_CONFIG_DEFAULTS };
+		this.kvDomain = {
+			builtin: CF_BEST_DOMAINS.map((item) => ({ domain: item.domain, name: item.name, enabled: true, type: 'builtin' }) as DomainRecord),
+			custom: [],
+		};
 	}
 
 	async loadKVConfig() {
@@ -41,51 +42,27 @@ export class WorkerContext {
 		try {
 			const configData = await this.kv.get('c');
 			if (!configData) {
-				this.kv.put('c', JSON.stringify(CONSTANTS.KV_CONFIG_DEFAULTS));
-				return;
+				this.kv.put(CONSTANTS.KV_KEY_CONFIG, JSON.stringify(CONSTANTS.KV_CONFIG_DEFAULTS));
+			} else {
+				const configJson = JSON.parse(configData);
+				// 遍历配置项进行赋值
+				Object.entries(CONSTANTS.KV_CONFIG_DEFAULTS).forEach(([key, defaultValue]) => {
+					this.kvConfig[key] = this._parseVarType(configJson[key], defaultValue);
+				});
 			}
-
-			const configJson = JSON.parse(configData);
-			// 遍历配置项进行赋值
-			Object.entries(CONSTANTS.KV_CONFIG_DEFAULTS).forEach(([key, defaultValue]) => {
-				this.kvConfig[key] = this._parseBool(configJson[key], defaultValue as boolean);
-			});
-
-			// 处理非布尔类型的配置项
-			if (configJson.socksAddress) {
-				this.kvConfig.socksAddress = configJson.socksAddress;
-			}
-			if (configJson.fallbackAddress) {
-				this.kvConfig.fallbackAddress = configJson.fallbackAddress;
-			}
-
-			// 解析 SOCKS 配置
-			this.socksConfig = Utils.parseSocksConfig(this.kvConfig.socksAddress || '');
-			this.fallbackAddress = this.kvConfig.fallbackAddress || '';
 		} catch (error) {
 			// 使用默认配置
 			console.warn('[KV] load config failed, using defaults', error);
 		}
 		try {
-			const kvData = await this.kv!.get(CONSTANTS.KV_KEY_DOMAINs);
+			const kvData = await this.kv!.get(CONSTANTS.KV_KEY_DOMAIN);
 			if (kvData) {
 				this.kvDomain = JSON.parse(kvData);
 			} else {
-				const domainData: DomainStorage = {
-					builtin: CF_BEST_DOMAINS.map(
-						(item) => ({ domain: item.domain, name: item.name, enabled: true, type: 'builtin' }) as DomainRecord,
-					),
-					custom: [],
-				};
-				this.kv!.put(CONSTANTS.KV_KEY_DOMAINs, JSON.stringify(domainData));
-				this.kvDomain = domainData;
+				this.kv!.put(CONSTANTS.KV_KEY_DOMAIN, JSON.stringify(this.kvDomain));
 			}
 		} catch (error) {
 			console.error('Error fetching domain storage from KV:', error);
-			this.kvDomain = {
-				builtin: CF_BEST_DOMAINS.map((item) => ({ domain: item.domain, name: item.name, enabled: true, type: 'builtin' }) as DomainRecord),
-				custom: [],
-			};
 		}
 	}
 
@@ -101,25 +78,25 @@ export class WorkerContext {
 				const countryToRegion = new Map<string, string>([
 					['US', 'US'],
 					['SG', 'SG'],
-					['JP', 'JP'],
+					['JP', 'JP'], // 1 row
 					['KR', 'KR'],
 					['DE', 'DE'],
-					['SE', 'SE'],
+					['SE', 'SE'], // 2 row
 					['NL', 'NL'],
 					['FI', 'FI'],
-					['GB', 'GB'],
+					['GB', 'GB'], // 3 row
 					['CN', 'SG'],
 					['TW', 'JP'],
-					['AU', 'SG'],
+					['AU', 'SG'], // 4 row
 					['CA', 'US'],
 					['FR', 'DE'],
-					['IT', 'DE'],
+					['IT', 'DE'], // 5 row
 					['ES', 'DE'],
 					['CH', 'DE'],
-					['AT', 'DE'],
+					['AT', 'DE'], // 6 row
 					['BE', 'NL'],
 					['DK', 'SE'],
-					['NO', 'SE'],
+					['NO', 'SE'], // 7 row
 					['IE', 'GB'],
 				]);
 
@@ -136,8 +113,10 @@ export class WorkerContext {
 		}
 	}
 
-	_parseBool(val: any, defaultVal: boolean): boolean {
+	_parseVarType(val: any, defaultVal: any): any {
 		if (val === undefined || val === '') return defaultVal;
-		return val === 'yes' || val === 'true' || val === true;
+		if (val === 'yes' || val === 'true' || val === true) return true;
+		if (val === 'no' || val === 'false' || val === false) return false;
+		return val;
 	}
 }

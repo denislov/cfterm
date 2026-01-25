@@ -9,12 +9,6 @@ export const router = async (ctx: WorkerContext, next: Function) => {
 	const url = ctx.url;
 	const path = url.pathname;
 
-	// 1. WebSocket 路由
-	if (ctx.request.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
-		const chatService = new ChatService(ctx);
-		return await chatService.handleUpgrade();
-	}
-
 	// 2. 订阅请求处理
 	if (path === '/sub') {
 		const subService = new SubService(ctx);

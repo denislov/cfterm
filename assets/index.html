@@ -481,7 +481,7 @@
 									class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 									placeholder="节点名称"
 								/>
-                                <input
+								<input
 									type="text"
 									id="newAddonWsArgs"
 									class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -523,7 +523,10 @@
 						</div>
 					</div>
 				</div>
-				<div id="statusMessage" class="fixed top-20 right-4 z-50 hidden px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full"></div>
+				<div
+					id="statusMessage"
+					class="fixed top-20 right-4 z-50 hidden px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full"
+				></div>
 			</div>
 
 			<!-- Related Links -->
@@ -966,7 +969,7 @@
 
 				try {
 					const res = await authFetch(`${API_BASE}/api/config`);
-                    console.log(res.status)
+					console.log(res.status);
 					// 认证失败
 					if (res.status === 401 || res.status === 403) {
 						AUTH_TOKEN = '';
@@ -990,7 +993,7 @@
 						return;
 					}
 					const data = await res.json();
-                    console.log(data)
+					console.log(data);
 					if (data.kvEnabled) {
 						const statusEl = document.getElementById('kvStatus');
 						statusEl.innerHTML = `<div class="flex items-center">
@@ -1027,7 +1030,7 @@
 					const res = await authFetch(`${API_BASE}/api/config`);
 					if (!res.ok) return;
 					const cfg = await res.json();
-                    console.log("cfg:",cfg)
+					console.log('cfg:', cfg);
 
 					// 填充表单
 					document.getElementById('wkRegion').value = cfg.wk || '';
@@ -1046,9 +1049,9 @@
 					document.getElementById('epd').checked = cfg.epd === true;
 					document.getElementById('epi').checked = cfg.epi !== false;
 					document.getElementById('egi').checked = cfg.egi !== false;
-					document.getElementById('apiEnabled').value = cfg.ae ? '':"no";
+					document.getElementById('apiEnabled').value = cfg.ae ? '' : 'no';
 					document.getElementById('regionMatching').value = cfg.rm || '';
-					document.getElementById('portControl').value = cfg.dkby ? 'yes':'';
+					document.getElementById('portControl').value = cfg.dkby ? 'yes' : '';
 
 					// 显示当前配置
 					const display = Object.entries(cfg)
@@ -1105,37 +1108,45 @@
 				});
 			}
 
-		// 显示状态消息
-		function showStatus(msg, type) {
-			const el = document.getElementById('statusMessage');
-			el.textContent = msg;
-			el.classList.remove('hidden', 'bg-green-100', 'bg-red-100', 'text-green-800', 'text-red-800', 'translate-x-full');
+			// 显示状态消息
+			function showStatus(msg, type) {
+				const el = document.getElementById('statusMessage');
+				el.textContent = msg;
+				el.classList.remove('hidden', 'bg-green-100', 'bg-red-100', 'text-green-800', 'text-red-800', 'translate-x-full');
 
-			if (type === 'success') {
-				el.classList.add('bg-green-100', 'text-green-800', 'border-l-4', 'border-green-500');
-			} else {
-				el.classList.add('bg-red-100', 'text-red-800', 'border-l-4', 'border-red-500');
-			}
+				if (type === 'success') {
+					el.classList.add('bg-green-100', 'text-green-800', 'border-l-4', 'border-green-500');
+				} else {
+					el.classList.add('bg-red-100', 'text-red-800', 'border-l-4', 'border-red-500');
+				}
 
-			// 触发滑入动画
-			setTimeout(() => {
-				el.classList.remove('translate-x-full');
-				el.classList.add('translate-x-0');
-			}, 10);
-
-			// 1秒后自动消失
-			setTimeout(() => {
-				el.classList.add('translate-x-full');
-				el.classList.remove('translate-x-0');
+				// 触发滑入动画
 				setTimeout(() => {
-					el.classList.add('hidden');
-				}, 300);
-			}, 1000);
-		}
+					el.classList.remove('translate-x-full');
+					el.classList.add('translate-x-0');
+				}, 10);
+
+				// 1秒后自动消失
+				setTimeout(() => {
+					el.classList.add('translate-x-full');
+					el.classList.remove('translate-x-0');
+					setTimeout(() => {
+						el.classList.add('hidden');
+					}, 300);
+				}, 1000);
+			}
+			function saveProtocolConfig() {
+				saveConfig({
+					ev: document.getElementById('ev').value,
+					et: document.getElementById('et').value,
+					ex: document.getElementById('ex').value,
+					tp: document.getElementById('tp').value,
+					ech: document.getElementById('ech').value,
+				});
+			}
 
 			// 初始化
 			document.addEventListener('DOMContentLoaded', async () => {
-                
 				// 检查 URL 参数中的 token
 				const urlParams = new URLSearchParams(window.location.search);
 				const urlToken = urlParams.get('token');
@@ -1146,12 +1157,10 @@
 					const cleanUrl = window.location.origin + window.location.pathname;
 					window.history.replaceState({}, document.title, cleanUrl);
 				}
-                // if (AUTH_TOKEN){
-                //     document.getElementById('tokenCard').style.display = 'none';
-                // }
+
 				const lang = detectLanguage();
 				applyLanguage(lang);
-                checkSystemStatus()
+				checkSystemStatus();
 				checkKVStatus();
 
 				// 绑定表单事件
@@ -1159,8 +1168,6 @@
 					e.preventDefault();
 					saveConfig({ wk: document.getElementById('wkRegion').value });
 				});
-
-				// 协议保存函数已在HTML中定义为onclick="saveProtocolConfig()"
 
 				document.getElementById('basicConfigForm').addEventListener('submit', (e) => {
 					e.preventDefault();
@@ -1268,7 +1275,7 @@
 				const domain = document.getElementById('newDomain').value.trim();
 				const name = document.getElementById('newDomainName').value.trim();
 				const port = parseInt(document.getElementById('newDomainPort').value) || 443;
-                const backupArg = document.getElementById('newAddonWsArgs').value.trim();
+				const backupArg = document.getElementById('newAddonWsArgs').value.trim();
 				if (!domain) {
 					showStatus('请输入域名', 'error');
 					return;
@@ -1278,7 +1285,7 @@
 					const res = await authFetch(`${API_BASE}/api/domains`, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ domain: domain, name: name || domain, port:port,backupArg:backupArg }),
+						body: JSON.stringify({ domain: domain, name: name || domain, port: port, backupArg: backupArg }),
 					});
 					const data = await res.json();
 
@@ -1286,7 +1293,7 @@
 						showStatus('域名添加成功', 'success');
 						document.getElementById('newDomain').value = '';
 						document.getElementById('newDomainName').value = '';
-                        document.getElementById('newAddonWsArgs').value = '';
+						document.getElementById('newAddonWsArgs').value = '';
 						document.getElementById('newDomainPort').value = '443';
 						loadDomains();
 					} else {

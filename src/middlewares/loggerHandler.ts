@@ -7,7 +7,7 @@ export const loggerHandler = async (ctx: WorkerContext, next: Function) => {
 
     const duration = Date.now() - start;
 
-    console.log(`[${new Date().toISOString()}] ${ctx.request.method} ${ctx.url.pathname} - ${resp.status} - ${duration}ms`);
+    console.info(`[${new Date().toISOString()}] ${ctx.request.method} ${ctx.url.pathname} - ${resp.status} - ${duration}ms`);
     if (resp.status !== 101)
         resp.headers.set('X-Response-Time', `${duration}ms`);
 

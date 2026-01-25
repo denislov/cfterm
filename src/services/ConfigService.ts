@@ -6,7 +6,7 @@ import { Utils } from "../Utils";
 export class ConfigService {
     private ctx: WorkerContext;
     private readonly KV_KEY_CONFIG = 'c';
-    private readonly KV_KEY_DOMAINs = 'domains';
+    private readonly KV_KEY_DOMAIN = 'domains';
 
     constructor(ctx: WorkerContext) {
         this.ctx = ctx;
@@ -23,6 +23,11 @@ export class ConfigService {
         if (method === 'POST') {
             try {
                 const newConfig = await this.ctx.request.json() as KVConfig;
+                if (newConfig.reset) {
+                    await this.saveKVConfig({
+                        ...CONSTANTS.KV_CONFIG_DEFAULTS
+                    })
+                }
                 const currentConfig = await this.getKVConfig();
 
                 for (const [key, value] of Object.entries(newConfig)) {
@@ -191,7 +196,7 @@ export class ConfigService {
             return { builtin: [], custom: [] };
         }
         try {
-            const kvData = await this.ctx.kv!.get(this.KV_KEY_DOMAINs);
+            const kvData = await this.ctx.kv!.get(this.KV_KEY_DOMAIN);
             return kvData ? JSON.parse(kvData) as DomainStorage : { builtin: CF_BEST_DOMAINS.map(
                 item => (
                     { domain: item.domain, name: item.name, enabled: true, type: 'builtin' } as DomainRecord
@@ -211,7 +216,7 @@ export class ConfigService {
     private async saveDomainStorage(storage: DomainStorage): Promise<void> {
         if (!this.checkKV()) return;
         try {
-            await this.ctx.kv!.put(this.KV_KEY_DOMAINs, JSON.stringify(storage));
+            await this.ctx.kv!.put(this.KV_KEY_DOMAIN, JSON.stringify(storage));
         } catch (error) {
             console.error('Error saving domain storage to KV:', error);
         }
