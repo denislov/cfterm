@@ -1,6 +1,6 @@
 import { env, createExecutionContext, waitOnExecutionContext, SELF } from 'cloudflare:test';
 import { describe, it, expect } from 'vitest';
-import { ProxyService } from '../src/services/ProxyService';
+import { ChatService } from '../src/services/ChatService';
 import { WorkerContext } from '../src/core/Context';
 
 describe('VLESS Connection Tests', () => {
@@ -23,7 +23,7 @@ describe('VLESS Connection Tests', () => {
         const context = new WorkerContext(mockRequest, mockEnv, mockCtx);
         await context.loadKVConfig();
         
-        const proxyService = new ProxyService(context);
+        const proxyService = new ChatService(context);
         
         // 测试UUID验证
         expect(context.uuid).toBe('351c9981-04b6-4103-aa4b-864aa9c91469');

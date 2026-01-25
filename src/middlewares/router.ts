@@ -1,6 +1,6 @@
 import { CONSTANTS } from "../core/Constants";
 import { WorkerContext } from "../core/Context";
-import { ProxyService } from "../services/ProxyService";
+import { ChatService } from "../services/ChatService";
 import { SubService } from "../services/SubService";
 import { Utils } from "../Utils";
 import { ApiHandler } from "./apiHandler";
@@ -11,7 +11,7 @@ export const router = async (ctx: WorkerContext, next: Function) => {
 
     // 1. WebSocket 路由
     if (ctx.request.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
-        const proxyService = new ProxyService(ctx);
+        const proxyService = new ChatService(ctx);
         return await proxyService.handleUpgrade();
     }
 
