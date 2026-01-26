@@ -56,7 +56,7 @@ const BACKUP_IPS = [
 // 静态资源：直连域名列表
 const CF_BEST_DOMAINS = [
 	{ name: '182682.xyz', domain: 'cloudflare.182682.xyz' },
-	{ name: 'JP-AI', domian: 'jp.111000.cc.cd' },
+	{ name: 'JP-AI', domain: 'jp.111000.cc.cd' },
 	{ name: '030101.xyz', domain: 'bestcf.030101.xyz' },
 	{ name: 'saas.sin.fan', domain: 'saas.sin.fan' },
 	{ name: 'cloudflare88', domain: 'freeyx.cloudflare88.eu.org' },
