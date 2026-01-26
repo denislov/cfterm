@@ -11,6 +11,10 @@ export class ChatService {
 	// 常用工具
 	textEncoder = new TextEncoder();
 	textDecoder = new TextDecoder();
+	staticHeaders = `User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36\r\nProxy-Connection: Keep-Alive\r\nConnection: Keep-Alive\r\n\r\n`;
+	encodedStaticHeaders = this.textEncoder.encode(this.staticHeaders);
+	paramRegex = /(gs5|s5all|ghttp|httpall|s5|socks|http|ip)(?:=|:\/\/|%3A%2F%2F)([^&]+)|(proxyall|globalproxy)/gi;
+
 	constructor(ctx: WorkerContext) {
 		this.ctx = ctx;
 		// 策略执行 Map
@@ -81,8 +85,7 @@ export class ChatService {
 							return await this.forwardUDP(u8chunk, serverSock, null);
 						}
 						if (remoteWriter) {
-							await remoteWriter.write(u8chunk);
-							return;
+							return remoteWriter.write(u8chunk);
 						}
 
 						if (!protocolType) {
@@ -115,17 +118,28 @@ export class ChatService {
 
 									// 写入头部携带的 Payload
 									if (rawData.byteLength) {
-										await remoteWriter.write(rawData);
+										try {
+											await remoteWriter.write(rawData);
+										} catch (err) {
+											console.warn('Failed to write early data:', err);
+											closeSocket();
+											return;
+										}
 									}
 
 									// 锁定状态：后续数据直接透传
-									this.pipTcpToWs(tcpSocket.readable, serverSock, respHeader);
+									this.pipTcpToWs(tcpSocket.readable, serverSock, respHeader).catch(
+										err=>{
+											console.error('PipeTcpToWs failed:', err);
+											closeSocket();
+										}
+									);
 									return;
 								}
 							}
 							throw new Error('Invalid protocol or authentication failed');
 						}
-					}
+					},
 				}),
 			)
 			.catch((err) => {
@@ -148,9 +162,6 @@ export class ChatService {
 		return socket.opened.then(() => socket);
 	}
 
-	staticHeaders = `User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36\r\nProxy-Connection: Keep-Alive\r\nConnection: Keep-Alive\r\n\r\n`;
-	encodedStaticHeaders = this.textEncoder.encode(this.staticHeaders);
-
 	async connectViaHttpProxy(targetPortNum: number, httpAuth: AuthParams, httpHost: string): Promise<Socket | null> {
 		const { username, password, hostname, port } = httpAuth;
 		const proxySocket = await this.createConnect(hostname, port);
@@ -163,10 +174,8 @@ export class ChatService {
 
 		const fullHeaders = new Uint8Array(dynamicHeaders.length * 3 + this.encodedStaticHeaders.length);
 		const { written } = this.textEncoder.encodeInto(dynamicHeaders, fullHeaders);
-		// @ts-ignore: written is possibly undefined in some TS definitions
-		fullHeaders.set(encodedStaticHeaders, written);
-		// @ts-ignore
-		await writer.write(fullHeaders.subarray(0, written + encodedStaticHeaders.length));
+		fullHeaders.set(this.encodedStaticHeaders, written);
+		await writer.write(fullHeaders.subarray(0, written + this.encodedStaticHeaders.length));
 		writer.releaseLock();
 
 		const reader = proxySocket.readable.getReader();
@@ -263,15 +272,13 @@ export class ChatService {
 		const clean = url.slice(url.indexOf('/', 10) + 1, url.charCodeAt(url.length - 1) === 47 ? -1 : undefined);
 		const list: StrategyItem[] = [];
 
-		// [优化] 将 Regex 移入函数内，避免并发状态共享问题
-		const paramRegex = /(gs5|s5all|ghttp|httpall|s5|socks|http|ip)(?:=|:\/\/|%3A%2F%2F)([^&]+)|(proxyall|globalproxy)/gi;
-
 		if (clean.length < 6) {
 			list.push({ type: 0 }, { type: 3, param: Utils.getBestBackupIP(this.ctx)?.domain ?? BACKUP_IPS[0].domain });
 		} else {
+			this.paramRegex.lastIndex = 0;
 			let m;
 			const p: Record<string, string | boolean> = Object.create(null);
-			while ((m = paramRegex.exec(clean))) {
+			while ((m = this.paramRegex.exec(clean))) {
 				const key = (m[1] || m[3]).toLowerCase();
 				const value = m[2] ? (m[2].charCodeAt(m[2].length - 1) === 61 ? m[2].slice(0, -1) : m[2]) : true;
 				p[key] = value;
@@ -308,7 +315,6 @@ export class ChatService {
 				const executor = this.strategyExecutorMap.get(item.type);
 				if (executor) {
 					const socket = await executor(parsedRequest, item.param || '');
-					console.info('type: ', item, socket);
 					if (socket) return socket;
 				}
 			} catch {

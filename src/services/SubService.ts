@@ -58,7 +58,7 @@ export class SubService {
 		addNodesFromList(nativeList);
 
 		this.ctx.kvDomain?.builtin.forEach((item) => {
-            if (this.ctx.region != 'AUTO') {
+            if (this.ctx.kvConfig.wk != 'AUTO') {
                 const bestBackupIP = Utils.getBestBackupIP(this.ctx);
                 item.backupArg = bestBackupIP?.domain ? `${atob('cHJveHlpcD0=') + bestBackupIP.domain}` : undefined;
 				item.name = bestBackupIP?.region ? `${bestBackupIP.region}-${item.name}`:item.name;

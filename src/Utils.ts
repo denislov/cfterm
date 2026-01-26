@@ -236,13 +236,19 @@ export class Utils {
 
 		return sortedIPs;
 	}
-	static getBestBackupIP(ctx: WorkerContext) {
+	static getBestBackupIP(ctx: WorkerContext, wk?: string) {
 		if (BACKUP_IPS.length === 0) {
 			return null;
 		}
 
 		const availableIPs = BACKUP_IPS.map((ip) => ({ ...ip, available: true }));
-
+		if (wk) {
+			const sortedIPs = Utils.getSmartRegionSelection(wk, availableIPs);
+			if (sortedIPs.length > 0) {
+				const selectedIP = sortedIPs[0];
+				return selectedIP;
+			}
+		}
 		if (ctx.region) {
 			const sortedIPs = Utils.getSmartRegionSelection(ctx.region, availableIPs);
 			if (sortedIPs.length > 0) {
