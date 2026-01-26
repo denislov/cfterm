@@ -162,7 +162,7 @@
 									id="wkRegion"
 									class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 								>
-									<option value="">自动检测</option>
+									<option value="AUTO">自动检测</option>
 								</select>
 							</div>
 							<button
@@ -265,6 +265,9 @@
 											<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" id="domainCol">域名</th>
 											<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" id="nameCol">名称</th>
 											<th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" id="portCol">端口</th>
+											<th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" id="backupArg">
+												WS Path参数
+											</th>
 											<th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" id="typeCol">类型</th>
 											<th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" id="actionCol">操作</th>
 										</tr>
@@ -283,23 +286,23 @@
 						<!-- Add New Domain -->
 						<div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
 							<h4 class="text-sm font-medium text-gray-900 mb-3">添加新域名</h4>
-							<div class="flex flex-col sm:flex-row gap-3">
+							<div class="flex flex-col sm:flex-row flex-wrap gap-3">
 								<input
 									type="text"
 									id="newDomain"
-									class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+									class="flex-1 min-w-0 sm:min-w-[150px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 									placeholder="example.com"
 								/>
 								<input
 									type="text"
 									id="newDomainName"
-									class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+									class="flex-1 min-w-0 sm:min-w-[120px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 									placeholder="节点名称"
 								/>
 								<input
 									type="text"
 									id="newAddonWsArgs"
-									class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+									class="flex-1 min-w-0 sm:min-w-[150px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 									placeholder="额外ws参数"
 								/>
 								<input
@@ -312,7 +315,7 @@
 								<button
 									type="button"
 									onclick="addDomain()"
-									class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors whitespace-nowrap"
+									class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors whitespace-nowrap flex-shrink-0"
 									id="addDomainBtn"
 								>
 									<i class="fas fa-plus mr-2"></i>添加
@@ -582,7 +585,7 @@
 			function renderRegionSelect() {
 				const sel = document.getElementById('wkRegion');
 				sel.innerHTML =
-					`<option value="">${t.autoDetect}</option>` +
+					`<option value="AUTO">${t.autoDetect}</option>` +
 					Object.entries(t.regions)
 						.map(([k, v]) => `<option value="${k}">${v}</option>`)
 						.join('');
@@ -590,7 +593,7 @@
 
 			// 生成订阅链接
 			function generateLink(type, name, scheme) {
-				const subUrl = location.href.replace(/\/$/, '') + '/sub?token='+AUTH_TOKEN;
+				const subUrl = location.href.replace(/\/$/, '') + '/sub?token=' + AUTH_TOKEN;
 				let finalUrl = subUrl;
 
 				if (type !== 'v2ray') {
@@ -630,12 +633,11 @@
 			async function checkSystemStatus() {
 				try {
 					const res = await fetch(`${API_BASE}/api/status`);
-					const region = res.headers.get("X-Worker-Region");
-					const echStatus = res.headers.get("X-ECH-Status");
-					const echConfigLen = res.headers.get("X-ECH-Config-Length");
+					const region = res.headers.get('X-Worker-Region');
+					const echStatus = res.headers.get('X-ECH-Status');
+					const echConfigLen = res.headers.get('X-ECH-Config-Length');
 
-					document.getElementById('regionStatus').innerHTML =
-						`<span class="text-green-600">🌍 ${t.regions[region] || region}</span>`;
+					document.getElementById('regionStatus').innerHTML = `<span class="text-green-600">🌍 ${t.regions[region] || region}</span>`;
 					document.getElementById('geoInfo').innerHTML = `<span class="text-blue-600">🔍 ${t.cloudflareDetection}</span>`;
 					document.getElementById('proxyIPStatus').innerHTML = `<span class="text-green-600">✅ ${t.available}</span>`;
 					document.getElementById('currentIP').innerHTML = `<span class="text-gray-600">🔄 ${t.smartSelection}</span>`;
@@ -728,7 +730,7 @@
 					const cfg = await res.json();
 
 					// 填充表单
-					document.getElementById('wkRegion').value = cfg.wk || '';
+					document.getElementById('wkRegion').value = cfg.wk || 'AUTO';
 					document.getElementById('ev').checked = cfg.ev !== false;
 					document.getElementById('et').checked = cfg.et === true;
 					document.getElementById('ex').checked = cfg.ex === true;
@@ -831,6 +833,9 @@
 				// 检查 URL 参数中的 token
 				const urlParams = new URLSearchParams(window.location.search);
 				const urlToken = urlParams.get('token');
+				if (localStorage.getItem('authToken')) {
+					AUTH_TOKEN = localStorage.getItem('authToken');
+				}
 				if (urlToken) {
 					AUTH_TOKEN = urlToken;
 					localStorage.setItem('authToken', urlToken);
@@ -883,7 +888,8 @@
 						html += `<tr class="${opacityClass}">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${d.domain}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${d.name || d.domain}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">443</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">${d.port || 443}</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">${d?.backupArg || '无'}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">内置</span>
                         </td>
@@ -902,6 +908,7 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${d.domain}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${d.name || d.domain}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">${d.port || 443}</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">${d?.backupArg || '无'}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">自定义</span>
                         </td>

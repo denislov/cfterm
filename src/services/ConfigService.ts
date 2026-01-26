@@ -18,7 +18,6 @@ export class ConfigService {
         const method = this.ctx.request.method.toUpperCase();
         if (method === 'GET') {
             const config = this.ctx.kvConfig;
-            console.info(config)
             return Utils.jsonResponse({ ...config, kvEnabled: true });
         }
         if (method === 'POST') {

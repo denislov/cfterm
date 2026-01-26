@@ -125,12 +125,7 @@ export class ChatService {
 							}
 							throw new Error('Invalid protocol or authentication failed');
 						}
-					},
-					close: () => {console.info("close websocket");remoteWriter?.releaseLock();closeSocket()},
-					abort: () => {
-						remoteWriter?.releaseLock();
-						closeSocket();
-					},
+					}
 				}),
 			)
 			.catch((err) => {
@@ -329,8 +324,6 @@ export class ChatService {
 			.pipeTo(
 				new WritableStream({
 					async write(chunk, controller) {
-						console.info('ws state:', ws.readyState);
-						console.info("header: ", header)
 						if (ws.readyState !== 1) {
 							controller.error(ERRORS.E_WS_NOT_OPEN);
 						}

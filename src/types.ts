@@ -66,6 +66,7 @@ export interface KVConfig {
     customDNS?: string;
     // 自定义 ECH 域名 (e.g., 'cloudflare-ech.com')
     customECHDomain?: string;
+    wk?: string;
     // 重置标志
     reset? : boolean;
 

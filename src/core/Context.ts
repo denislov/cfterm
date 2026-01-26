@@ -120,7 +120,7 @@ export class WorkerContext {
 
 	_parseVarType(val: any, defaultVal: any): any {
 		if (val === undefined || val === '') return defaultVal;
-		if (val === 'yes' || val === 'true' || val === 'on' || val === true) return true;
+		if (val === 'yes' || val === 'true' || val === true) return true;
 		if (val === 'no' || val === 'false' || val === false) return false;
 		return val;
 	}

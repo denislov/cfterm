@@ -10,10 +10,10 @@
 	"observability": {
 		"enabled": true,
 	},
-	// "assets": {
-	// 	"directory": "./assets/",
-	// 	"binding": "ASSETS",
-	// },
+	"assets": {
+		"directory": "./assets/",
+		"binding": "ASSETS",
+	},
 	"kv_namespaces": [
 		{
 			"id": "bc4cc21826f6427997df4b396a6a680a",

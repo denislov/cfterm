@@ -58,15 +58,16 @@ export class SubService {
 		addNodesFromList(nativeList);
 
 		this.ctx.kvDomain?.builtin.forEach((item) => {
-            if (this.ctx.region != 'CUSTOM') {
+            if (this.ctx.region != 'AUTO') {
                 const bestBackupIP = Utils.getBestBackupIP(this.ctx);
-                item.backupArg = bestBackupIP?.domain ? `&${bestBackupIP?.domain}`:undefined;
+                item.backupArg = bestBackupIP?.domain ? `${atob('cHJveHlpcD0=') + bestBackupIP.domain}` : undefined;
+				item.name = bestBackupIP?.region ? `${bestBackupIP.region}-${item.name}`:item.name;
             }
 			const cfList: NodeInfo[] = [{ ip: item.domain, name: item.name!, port: 443, type: proto, pathArgs: item.backupArg }];
 			addNodesFromList(cfList);
 		});
 		this.ctx.kvDomain?.custom.forEach((item) => {
-			const cfList: NodeInfo[] = [{ ip: item.domain, name: item.name!, port: 443, type: proto }];
+			const cfList: NodeInfo[] = [{ ip: item.domain, name: item.name!, port: 443, type: proto, pathArgs: item.backupArg }];
 			addNodesFromList(cfList);
 		});
 
@@ -88,18 +89,18 @@ export class SubService {
 		user: string,
 		workerDomain: string,
 		echConfig?: string,
-		addonPath?: string,
 	) {
 		const defaultHttpsPorts = [443, 2053, 2083, 2087, 2096, 8443];
 
 		const links: NodeInfo[] = [];
 		let wsPath = '/?ed=2048';
-		if (addonPath) {
-			wsPath += `&${addonPath}`;
-		}
+		
 		list.forEach((item) => {
 			let nodeNameBase = item.name.replace(/\s/g, '_');
 			if (defaultHttpsPorts.includes(item.port)) {
+				if (item.pathArgs) {
+					wsPath += `&${item.pathArgs}`;
+				}
 				const wsNodeName = `${nodeNameBase}-WS-TLS`;
 				const wsParams = new URLSearchParams({
 					encryption: 'none',
