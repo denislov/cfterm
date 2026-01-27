@@ -87,56 +87,278 @@ export class XService {
 
             const uploader = this.create_xhttp_uploader(httpx, remoteConnection.writable, signal);
             const downloader = this.create_xhttp_downloader(httpx.resp!, remoteConnection.readable, signal);
-
+            signal.addEventListener('abort', () => {
+                try { remoteConnection.close(); } catch (_) { }
+                try { downloader.abort(); } catch (_) { }
+                try { uploader.abort(); } catch (_) { }
+            }, { once: true });
             // 等待连接完成或超时
             // 注意：uploader 错误通常是正常的连接关闭，不应导致整体失败
-            const connectionClosed = (async () => {
-                try {
-                    // uploader 完成（无论成功还是失败）和 downloader 完成都是正常的
-                    // 只有 downloader 错误才需要关注
-                    const uploaderPromise = uploader.done.catch((err: Error) => {
-                        // uploader 错误通常是 "Network connection lost"，这是正常的连接关闭
-                    });
+            const connectionClosed = Promise.race([
+                (async () => {
+                    try {
+                        await downloader.done;
+                    } catch (err) {
 
-                    const downloaderPromise = downloader.done.catch((err: Error) => {
-                        console.log('[XHTTP] Downloader finished with error:', err?.message || err);
-                        throw err; // 只有 downloader 错误才抛出
-                    });
-
-                    const timeoutPromise = this.xhttp_sleep(this.IDLE_TIMEOUT_MS).then(() => {
-                        throw new Error('idle timeout');
-                    });
-
-                    // 等待 downloader 完成（或超时），uploader 在后台运行
-                    await Promise.race([downloaderPromise, timeoutPromise]);
-
-                    // downloader 完成后，给 uploader 一点时间完成
-                    await Promise.race([uploaderPromise, this.xhttp_sleep(1000)]);
-
-                } catch (err) {
-                    // 只有 downloader 错误或超时才会到这里
-                    console.log('[XHTTP] Connection error:', (err as Error)?.message || err);
-                } finally {
-                    // 确保清理
-                    if (!signal.aborted) {
-                        abortController.abort();
                     }
-                    try { remoteConnection.close(); } catch (_) { }
-                    cleanup();
-                }
-            })();
+                })(),
+                (async () => {
+                    try {
+                        await uploader.done;
+                    } catch (err) {
+
+                    }
+                })(),
+                this.xhttp_sleep(this.IDLE_TIMEOUT_MS).then(() => {
+
+                })
+            ]).finally(() => {
+                signal.aborted ?? abortController.abort();
+                cleanup();
+            });
 
             return {
                 readable: downloader.readable,
                 closed: connectionClosed
             };
         } catch (error) {
-            abortController.abort();
             cleanup();
             return null;
         }
     }
 
+
+
+    async connect_to_remote_xhttp(httpx: XHeader, ...remotes: string[]) {
+        let attempt = 0;
+        let lastErr;
+
+        const connectionList = [httpx.hostname, ...remotes.filter(r => r && r !== httpx.hostname)];
+        for (const hostname of connectionList) {
+            if (!hostname) continue;
+
+            attempt = 0;
+            while (attempt < this.MAX_RETRIES) {
+                attempt++;
+                try {
+                    const remote = connect({ hostname, port: httpx.port! });
+                    const timeoutPromise = this.xhttp_sleep(this.CONNECT_TIMEOUT_MS).then(() => {
+                        throw new Error(atob('Y29ubmVjdCB0aW1lb3V0'));
+                    });
+
+                    await Promise.race([remote.opened, timeoutPromise]);
+
+                    return {
+                        readable: remote.readable,
+                        writable: remote.writable,
+                        close: () => {
+                            try { remote.close(); } catch (_) { }
+                        }
+                    };
+                } catch (err) {
+                    lastErr = err;
+                    if (attempt < this.MAX_RETRIES) {
+                        await this.xhttp_sleep(500 * attempt);
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+
+    create_xhttp_uploader(httpx: any, writable: WritableStream, signal: AbortSignal) {
+        const counter = new XhttpCounter();
+        const writer = writable.getWriter();
+
+        const done = (async () => {
+            try {
+                await this.upload_to_remote_xhttp(counter, writer, httpx, signal);
+            } catch (error) {
+                throw error;
+            } finally {
+                try {
+                    await writer.close();
+                } catch (error) {
+
+                }
+            }
+        })();
+
+        return {
+            counter,
+            done,
+            abort: () => {
+                try { writer.abort(); } catch (_) { }
+            }
+        };
+
+    }
+
+    create_xhttp_downloader(resp: Uint8Array, remote_readable: ReadableStream, signal: AbortSignal) {
+        const counter = new XhttpCounter();
+        let stream!: TransformStream;
+        let resolvePromise: (value?: void) => void;
+        let rejectPromise: (reason?: any) => void;
+
+        const done = new Promise<void>((resolve, reject) => {
+            resolvePromise = resolve;
+            rejectPromise = reject;
+
+            stream = new TransformStream(
+                {
+                    start(controller) {
+                        counter.add(resp.length);
+                        controller.enqueue(resp);
+                    },
+                    transform(chunk, controller) {
+                        counter.add(chunk.length);
+                        controller.enqueue(chunk);
+                    },
+                    cancel(reason) {
+                        reject(`download cancelled: ${reason}`);
+                    },
+                },
+                undefined,
+                new ByteLengthQueuingStrategy({ highWaterMark: this.XHTTP_BUFFER_SIZE }),
+            );
+
+            const reader = remote_readable.getReader();
+            const writer = stream.writable.getWriter();
+
+            (async () => {
+                let idleTimer: ReturnType<typeof setInterval> | null = null;
+                try {
+                    let chunkCount = 0;
+                    let lastActivity = Date.now();
+
+                    idleTimer = setInterval(() => {
+                        if (Date.now() - lastActivity > this.IDLE_TIMEOUT_MS) {
+                            if (idleTimer) clearInterval(idleTimer);
+                            rejectPromise('idle timeout');
+                        }
+                    }, 5000);
+
+                    while (!signal.aborted) {
+                        const r = await reader.read();
+                        if (r.done) {
+                            break;
+                        }
+                        chunkCount++;
+                        lastActivity = Date.now();
+                        await writer.write(r.value);
+                        if (chunkCount % 5 === 0) {
+                            await this.xhttp_sleep(0);
+                        }
+                    }
+                    resolvePromise();
+                } catch (err) {
+                    if (!signal.aborted) {
+                        rejectPromise(err);
+                    } else {
+                        resolvePromise(); // aborted, resolve normally
+                    }
+                } finally {
+                    if (idleTimer) clearInterval(idleTimer);
+                    try { reader.releaseLock(); } catch (_) { }
+                    try { writer.releaseLock(); } catch (_) { }
+                }
+            })();
+        });
+
+        return {
+            readable: stream.readable,
+            counter,
+            done,
+            abort: () => {
+                try { stream.readable.cancel(); } catch (_) { }
+                try { stream.writable.abort(); } catch (_) { }
+            }
+        };
+    }
+
+    async upload_to_remote_xhttp(counter: XhttpCounter, writer: WritableStreamDefaultWriter, httpx: XHeader, signal: AbortSignal) {
+        let readerClosed = false;
+        httpx.reader!.closed
+            .then(() => {
+                readerClosed = true;
+            })
+            .catch((err) => {
+                readerClosed = true;
+            });
+        async function inner_upload(d: Uint8Array) {
+            if (!d || d.length === 0) {
+                return;
+            }
+            counter.add(d.length);
+            try {
+                await writer.write(d);
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        try {
+            await inner_upload(httpx.data!);
+            let chunkCount = 0;
+            while (!httpx.done && !signal.aborted && !readerClosed) {
+                const r = await httpx.reader!.read(this.get_xhttp_buffer());
+                if (r.done) break;
+                await inner_upload(r.value);
+                httpx.done = r.done;
+                chunkCount++;
+                if (chunkCount % 10 === 0) {
+                    await this.xhttp_sleep(0);
+                }
+                if (!r.value || r.value.length === 0) {
+                    await this.xhttp_sleep(2);
+                }
+            }
+        } catch (error) {
+            if (signal.aborted || readerClosed) {
+                return; // 正常结束
+            }
+            throw error;
+        }
+    }
+    xhttp_sleep(ms?: number) {
+        return new Promise((r) => setTimeout(r, ms));
+    }
+    get_xhttp_buffer(size?: number) {
+        return new Uint8Array(new ArrayBuffer(size || this.XHTTP_BUFFER_SIZE));
+    }
+    parse_uuid_xhttp(uuid: string) {
+        uuid = uuid.replaceAll('-', '');
+        const r = [];
+        for (let index = 0; index < 16; index++) {
+            const v = parseInt(uuid.substr(index * 2, 2), 16);
+            r.push(v);
+        }
+        return r;
+    }
+    validate_uuid_xhttp(id: Uint8Array, uuid: number[]) {
+        for (let index = 0; index < 16; index++) {
+            if (id[index] !== uuid[index]) {
+                return false;
+            }
+        }
+        return true;
+    }
+    concat_typed_arrays(first: Uint8Array, ...args: Uint8Array[]) {
+        let len = first.length;
+        for (let a of args) {
+            len += a.length;
+        }
+        const r = new Uint8Array(len);
+        r.set(first, 0);
+        len = first.length;
+        for (let a of args) {
+            r.set(a, len);
+            len += a.length;
+        }
+        return r;
+    }
     async read_xhttp_header(readable: ReadableStream<any>, uuid_str: string): Promise<XHeader> {
         const reader = readable.getReader({ mode: 'byob' });
 
@@ -237,262 +459,6 @@ export class XService {
             };
         } catch (error) {
             try { reader.releaseLock(); } catch (_) { }
-            throw error;
-        }
-    }
-
-    async connect_to_remote_xhttp(httpx: XHeader, ...remotes: string[]) {
-        let attempt = 0;
-        let lastErr;
-
-        const connectionList = [httpx.hostname, ...remotes.filter(r => r && r !== httpx.hostname)];
-        for (const hostname of connectionList) {
-            if (!hostname) continue;
-
-            attempt = 0;
-            while (attempt < this.MAX_RETRIES) {
-                attempt++;
-                try {
-                    const remote = connect({ hostname, port: httpx.port! });
-                    const timeoutPromise = this.xhttp_sleep(this.CONNECT_TIMEOUT_MS).then(() => {
-                        throw new Error(atob('Y29ubmVjdCB0aW1lb3V0'));
-                    });
-
-                    await Promise.race([remote.opened, timeoutPromise]);
-
-                    return {
-                        readable: remote.readable,
-                        writable: remote.writable,
-                        close: () => {
-                            try { remote.close(); } catch (_) { }
-                        }
-                    };
-                } catch (err) {
-                    lastErr = err;
-                    if (attempt < this.MAX_RETRIES) {
-                        await this.xhttp_sleep(500 * attempt);
-                    }
-                }
-            }
-        }
-
-        return null;
-    }
-    xhttp_sleep(ms?: number) {
-        return new Promise((r) => setTimeout(r, ms));
-    }
-    get_xhttp_buffer(size?: number) {
-        return new Uint8Array(new ArrayBuffer(size || this.XHTTP_BUFFER_SIZE));
-    }
-    parse_uuid_xhttp(uuid: string) {
-        uuid = uuid.replaceAll('-', '');
-        const r = [];
-        for (let index = 0; index < 16; index++) {
-            const v = parseInt(uuid.substr(index * 2, 2), 16);
-            r.push(v);
-        }
-        return r;
-    }
-    validate_uuid_xhttp(id: Uint8Array, uuid: number[]) {
-        for (let index = 0; index < 16; index++) {
-            if (id[index] !== uuid[index]) {
-                return false;
-            }
-        }
-        return true;
-    }
-    concat_typed_arrays(first: Uint8Array, ...args: Uint8Array[]) {
-        let len = first.length;
-        for (let a of args) {
-            len += a.length;
-        }
-        const r = new Uint8Array(len);
-        r.set(first, 0);
-        len = first.length;
-        for (let a of args) {
-            r.set(a, len);
-            len += a.length;
-        }
-        return r;
-    }
-
-    create_xhttp_uploader(httpx: any, writable: WritableStream, signal: AbortSignal) {
-        const counter = new XhttpCounter();
-        const writer = writable.getWriter();
-
-        const done = (async () => {
-            try {
-                await this.upload_to_remote_xhttp(counter, writer, httpx, signal);
-            } catch (error) {
-                // 忽略由于 abort 导致的错误
-                if (signal.aborted) {
-                    console.log('[XHTTP] Uploader: aborted');
-                    return;
-                }
-                throw error;
-            } finally {
-                try {
-                    await writer.close();
-                } catch (error) {
-                    // 忽略关闭错误
-                }
-            }
-        })();
-
-        return {
-            counter,
-            done,
-            abort: () => {
-                try { writer.abort(); } catch (_) { }
-            }
-        };
-    }
-
-    create_xhttp_downloader(resp: Uint8Array, remote_readable: ReadableStream, signal: AbortSignal) {
-        const counter = new XhttpCounter();
-        let stream!: TransformStream;
-        let resolvePromise: (value?: void) => void;
-        let rejectPromise: (reason?: any) => void;
-
-        const done = new Promise<void>((resolve, reject) => {
-            resolvePromise = resolve;
-            rejectPromise = reject;
-
-            stream = new TransformStream(
-                {
-                    start(controller) {
-                        counter.add(resp.length);
-                        controller.enqueue(resp);
-                    },
-                    transform(chunk, controller) {
-                        counter.add(chunk.length);
-                        controller.enqueue(chunk);
-                    },
-                    cancel(reason) {
-                        reject(`download cancelled: ${reason}`);
-                    },
-                },
-                undefined,
-                new ByteLengthQueuingStrategy({ highWaterMark: this.XHTTP_BUFFER_SIZE }),
-            );
-
-            // 监听 abort 信号
-            signal.addEventListener('abort', () => {
-                try { stream.writable.abort?.('aborted'); } catch (_) { }
-                try { stream.readable.cancel?.('aborted'); } catch (_) { }
-            }, { once: true });
-
-            const reader = remote_readable.getReader();
-            const writer = stream.writable.getWriter();
-
-            (async () => {
-                let idleTimer: ReturnType<typeof setInterval> | null = null;
-                try {
-                    let chunkCount = 0;
-                    let lastActivity = Date.now();
-
-                    idleTimer = setInterval(() => {
-                        if (Date.now() - lastActivity > this.IDLE_TIMEOUT_MS) {
-                            if (idleTimer) clearInterval(idleTimer);
-                            rejectPromise('idle timeout');
-                        }
-                    }, 5000);
-
-                    while (!signal.aborted) {
-                        const r = await reader.read();
-                        if (r.done) {
-                            break;
-                        }
-                        chunkCount++;
-                        lastActivity = Date.now();
-                        await writer.write(r.value);
-                        if (chunkCount % 5 === 0) {
-                            await this.xhttp_sleep(0);
-                        }
-                    }
-                    resolvePromise();
-                } catch (err) {
-                    if (!signal.aborted) {
-                        console.log('[XHTTP] Downloader: error', err);
-                        rejectPromise(err);
-                    } else {
-                        resolvePromise(); // aborted, resolve normally
-                    }
-                } finally {
-                    if (idleTimer) clearInterval(idleTimer);
-                    try { reader.releaseLock(); } catch (_) { }
-                    try { writer.releaseLock(); } catch (_) { }
-                }
-            })();
-        });
-
-        return {
-            readable: stream.readable,
-            counter,
-            done,
-            abort: () => {
-                try { stream.readable.cancel(); } catch (_) { }
-                try { stream.writable.abort(); } catch (_) { }
-            }
-        };
-    }
-
-    async upload_to_remote_xhttp(counter: XhttpCounter, writer: WritableStreamDefaultWriter, httpx: XHeader, signal: AbortSignal) {
-        async function inner_upload(d: Uint8Array) {
-            if (!d || d.length === 0) {
-                return;
-            }
-            counter.add(d.length);
-            await writer.write(d);
-        }
-
-        try {
-            await inner_upload(httpx.data!);
-
-            let chunkCount = 0;
-            while (!httpx.done && !signal.aborted) {
-                try {
-                    const r = await httpx.reader!.read(this.get_xhttp_buffer());
-
-                    if (r.done) {
-                        httpx.done = true;
-                        break;
-                    }
-                    if (r.value) {
-                        if (r.value.length >= 5) {
-                            const sub = r.value.subarray(0, 5);
-                            if (sub && sub.length === 5 &&
-                                sub.every((val, idx) => val === [23, 3, 3, 0, 19][idx])) {
-                                httpx.done = true;
-                                break;
-                            }
-                        }
-                    }
-                    chunkCount++;
-                    await inner_upload(r.value);
-
-                    if (chunkCount % 10 === 0) {
-                        await this.xhttp_sleep(0);
-                    }
-                    if (!r.value || r.value.length === 0) {
-                        await this.xhttp_sleep(2);
-                    }
-                } catch (readError: any) {
-                    // 读取错误可能是客户端断开连接（正常情况）
-                    const errorMessage = readError?.message || String(readError);
-
-                    // "Network connection lost" 是正常的连接关闭信号
-                    if (errorMessage.includes('Network connection lost') ||
-                        errorMessage.includes('connection') ||
-                        signal.aborted) {
-                        httpx.done = true;
-                        break;
-                    }
-                    throw readError;
-                }
-            }
-        } catch (error) {
-            console.log('[XHTTP] Uploader: error', error);
             throw error;
         }
     }

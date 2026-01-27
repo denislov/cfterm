@@ -18,7 +18,7 @@ export const protocolHandler = async (ctx: WorkerContext, next: () => Promise<Re
 
     // 2. XHTTP 请求 - 通过路径中的 UUID 进行验证
     // 路径格式: /{uuid}/0, /{uuid}/1, etc.
-    if (ctx.request.method === 'POST' && !ctx.kvConfig.ex) {
+    if (ctx.request.method === 'POST' && ctx.kvConfig.ex) {
         if (path.startsWith('/' + ctx.uuid.substring(0, 8))) {
             return await handleXhttp(ctx);
         }
