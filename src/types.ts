@@ -10,6 +10,20 @@ export interface DomainItem {
     flag?: string;
 }
 
+export interface ProtocolHeader {
+    hasError: boolean;
+    type?: 'vless' | 'trojan' | 'xhttp';
+    addressType?: ADDRESS_TYPE;
+    hostname?: string;
+    port?: number;
+    rawClientData?: Uint8Array;
+    message?: string;
+
+    // for vless
+    isUDP?: boolean;
+    version?: Uint8Array;
+}
+
 export interface NodeInfo {
     ip: string;
     port: number;
@@ -24,7 +38,6 @@ export interface NodeInfo {
 export interface ParsedRequest {
     addrType: ADDRESS_TYPE;
     hostname: string;
-    dataOffset: number;
     port: number;
 }
 
@@ -68,7 +81,8 @@ export interface KVConfig {
     customECHDomain?: string;
     wk?: string;
     // 重置标志
-    reset? : boolean;
+    reset?: boolean;
+    xFallbackAddress?: string;
 
     // 为了兼容未在类型中定义的动态键值，保留索引签名
     [key: string]: any;

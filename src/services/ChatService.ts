@@ -1,9 +1,10 @@
 import { connect } from 'cloudflare:sockets';
 import { BACKUP_IPS, CONSTANTS, ERRORS } from '../core/Constants';
 import { WorkerContext } from '../core/Context';
-import { ADDRESS_TYPE, AuthParams, ParsedRequest, StrategyFn, StrategyItem } from '../types';
+import { ADDRESS_TYPE, AuthParams, ParsedRequest, ProtocolHeader, StrategyFn, StrategyItem } from '../types';
 import { Utils } from '../Utils';
 import { VParser } from '../protocols/VParser';
+import { TParser } from '../protocols/TParser';
 
 export class ChatService {
 	private ctx: WorkerContext;
@@ -64,16 +65,15 @@ export class ChatService {
 		const readable = this.makeReadableStream(serverSock, earlyData);
 
 		let tcpSocket: Socket | null = null;
-		let remoteWriter: WritableStreamDefaultWriter | undefined;
 
 		const closeSocket = () => {
 			if (tcpSocket) {
 				try {
 					tcpSocket.close();
-				} catch {}
+				} catch { }
 				try {
 					Utils.closeSocketQuietly(serverSock);
-				} catch {}
+				} catch { }
 			}
 		};
 		readable
@@ -84,27 +84,28 @@ export class ChatService {
 						if (isDnsQuery) {
 							return await this.forwardUDP(u8chunk, serverSock, null);
 						}
-						if (remoteWriter) {
-							return remoteWriter.write(u8chunk);
+						if (tcpSocket) {
+							const remoteWriter = tcpSocket.writable.getWriter();
+							await remoteWriter.write(u8chunk);
+							remoteWriter.releaseLock();
+							return;
 						}
 
 						if (!protocolType) {
-							if (u8chunk.byteLength >= 24) {
+							if (this.ctx.kvConfig.ev && u8chunk.byteLength >= 24) {
 								const vResult = VParser.parseHeader(u8chunk, this.ctx.uuid);
 								if (!vResult.hasError) {
 									protocolType = atob('dmxlc3M=');
-									const { addressType, port, hostname, rawIndex, version, isUDP } = vResult;
-									if (isUDP) {
-										if (port === 53) isDnsQuery = true;
+									vResult;
+									if (vResult.isUDP) {
+										if (vResult.port === 53) isDnsQuery = true;
 										else throw new Error(ERRORS.E_UDP_DNS_ONLY);
 									}
-									const respHeader = new Uint8Array([version![0], 0]);
-									const rawData = u8chunk.subarray(rawIndex);
-
-									if (isDnsQuery) return this.forwardUDP(rawData, serverSock, respHeader);
+									const respHeader = new Uint8Array([vResult.version![0], 0]);
+									if (isDnsQuery) return this.forwardUDP(vResult.rawClientData, serverSock, respHeader);
 									try {
 										tcpSocket = await this.establishTcpConnection(
-											{ hostname: hostname!, port: port!, addrType: addressType!, dataOffset: rawIndex! },
+											{ hasError: false, addressType: vResult.addressType, port: vResult.port, hostname: vResult.hostname },
 											this.ctx.request,
 										);
 									} catch {
@@ -114,22 +115,35 @@ export class ChatService {
 										closeSocket();
 										return;
 									}
-									remoteWriter = tcpSocket.writable.getWriter();
-
-									// 写入头部携带的 Payload
-									if (rawData.byteLength) {
-										try {
-											await remoteWriter.write(rawData);
-										} catch (err) {
-											console.warn('Failed to write early data:', err);
-											closeSocket();
-											return;
-										}
-									}
 
 									// 锁定状态：后续数据直接透传
-									this.pipTcpToWs(tcpSocket.readable, serverSock, respHeader).catch(
-										err=>{
+									this.pipTcpToWs(tcpSocket, serverSock, vResult).catch(
+										err => {
+											console.error('PipeTcpToWs failed:', err);
+											closeSocket();
+										}
+									);
+									return;
+								}
+							}
+							if (u8chunk.byteLength >= 56) {
+								const tResult = await TParser.parseTrojanHeader(u8chunk, this.ctx.uuid);
+								if (!tResult.hasError) {
+									protocolType = atob('dHJvamFu');
+									try {
+										tcpSocket = await this.establishTcpConnection(
+											{ hasError: false, addressType: tResult.addressType, port: tResult.port, hostname: tResult.hostname },
+											this.ctx.request,
+										);
+									} catch {
+										tcpSocket = null;
+									}
+									if (!tcpSocket) {
+										closeSocket();
+										return;
+									}
+									this.pipTcpToWs(tcpSocket, serverSock, tResult).catch(
+										err => {
 											console.error('PipeTcpToWs failed:', err);
 											closeSocket();
 										}
@@ -210,7 +224,7 @@ export class ChatService {
 							const remainingWriter = writable.getWriter();
 							remainingWriter.write(buffer.subarray(i + 4, bytesRead));
 							remainingWriter.releaseLock();
-							proxySocket.readable.pipeTo(writable).catch(() => {});
+							proxySocket.readable.pipeTo(writable).catch(() => { });
 							// 替换 socket 的 readable 为回填后的 stream
 							// @ts-ignore: hacky overwrite
 							proxySocket.readable = readable;
@@ -267,7 +281,7 @@ export class ChatService {
 	// 5. 核心逻辑：建立连接与数据管道
 	// =========================================
 
-	async establishTcpConnection(parsedRequest: ParsedRequest, request: Request): Promise<Socket | null> {
+	async establishTcpConnection(parsedRequest: ProtocolHeader, request: Request): Promise<Socket | null> {
 		const url = request.url;
 		const clean = url.slice(url.indexOf('/', 10) + 1, url.charCodeAt(url.length - 1) === 47 ? -1 : undefined);
 		const list: StrategyItem[] = [];
@@ -314,7 +328,11 @@ export class ChatService {
 			try {
 				const executor = this.strategyExecutorMap.get(item.type);
 				if (executor) {
-					const socket = await executor(parsedRequest, item.param || '');
+					const socket = await executor({
+						addrType: parsedRequest!.addressType!,
+						hostname: parsedRequest!.hostname!,
+						port: parsedRequest!.port!,
+					}, item.param || '');
 					if (socket) return socket;
 				}
 			} catch {
@@ -324,9 +342,18 @@ export class ChatService {
 		return null;
 	}
 
-	async pipTcpToWs(readable: ReadableStream, ws: WebSocket, respHeader: Uint8Array | null = null) {
-		let header = respHeader;
-		await readable
+	async pipTcpToWs(remoteSocket: Socket, ws: WebSocket, respHeader: ProtocolHeader | null = null) {
+		if (respHeader?.rawClientData?.byteLength) {
+			const remoteWriter = remoteSocket.writable.getWriter();
+			await remoteWriter.write(respHeader.rawClientData);
+			remoteWriter.releaseLock();
+		}
+		// vless 可能有header version需要返回
+		let header: Uint8Array | null = null;
+		if (respHeader?.version) {
+			header = new Uint8Array([respHeader!.version![0], 0]);
+		}
+		await remoteSocket.readable
 			.pipeTo(
 				new WritableStream({
 					async write(chunk, controller) {
@@ -340,7 +367,7 @@ export class ChatService {
 							ws.send(chunk);
 						}
 					},
-					abort(reason) {},
+					abort(reason) { },
 				}),
 			)
 			.catch((error) => {
@@ -393,6 +420,6 @@ export class ChatService {
 					},
 				}),
 			);
-		} catch (error) {}
+		} catch (error) { }
 	}
 }

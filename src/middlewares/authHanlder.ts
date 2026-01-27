@@ -1,15 +1,12 @@
 import { WorkerContext } from '../core/Context';
-import { ChatService } from '../services/ChatService';
 import { Utils } from '../Utils';
 
+/**
+ * 认证中间件
+ * 仅负责验证请求的 token，不处理协议层逻辑
+ */
 export const authHandler = async (ctx: WorkerContext, next: () => Promise<Response>): Promise<Response> => {
 	const path = ctx.url.pathname;
-
-    // WebSocket连接不需要认证，直接处理
-	if (ctx.request.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
-		const chatService = new ChatService(ctx);
-		return await chatService.handleUpgrade();
-	}
 
 	// 从 Header 中获取 token (支持 X-Token 或 Authorization: Bearer xxx)
 	const xToken = ctx.request.headers.get('X-Token');
@@ -25,6 +22,7 @@ export const authHandler = async (ctx: WorkerContext, next: () => Promise<Respon
 	if (token && Utils.isUuid(token) && token === ctx.uuid) {
 		ctx.isAuth = true;
 	}
+
 	// 公开路由，不需要鉴权
 	if (path === '/' || path === '/api/status' || path === '/v1/models') {
 		return next();

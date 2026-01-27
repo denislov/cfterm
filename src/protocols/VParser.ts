@@ -1,20 +1,9 @@
 import { ERRORS } from '../core/Constants';
-import { ADDRESS_TYPE } from '../types';
+import { ADDRESS_TYPE, ProtocolHeader } from '../types';
 import { Utils } from '../Utils';
 
-export interface VlessHeader {
-	hasError: boolean;
-	addressType?: ADDRESS_TYPE;
-	port?: number;
-	hostname?: string;
-	isUDP?: boolean;
-	rawIndex?: number;
-	version?: Uint8Array;
-	message?: string;
-}
-
 export class VParser {
-	static parseHeader(chunk: Uint8Array, token: string): VlessHeader {
+	static parseHeader(chunk: Uint8Array, token: string): ProtocolHeader {
 		if (chunk.byteLength < 24) return { hasError: true, message: ERRORS.E_INVALID_DATA };
 		const version = new Uint8Array(chunk.subarray(0, 1));
 		if (Utils.formatIdentifier(new Uint8Array(chunk.subarray(1, 17))) !== token) return { hasError: true, message: ERRORS.E_INVALID_USER };
@@ -56,10 +45,6 @@ export class VParser {
 				return { hasError: true, message: `${ERRORS.E_INVALID_ADDR_TYPE}: ${addressType}` };
 		}
 		if (!hostname) return { hasError: true, message: `${ERRORS.E_EMPTY_ADDR}: ${addressType}` };
-		return { hasError: false, addressType, port, hostname, isUDP, rawIndex: addrValIdx + addrLen, version };
-	}
-
-	static getResponseHeader(data: ArrayBuffer) {
-		throw new Error('Method not implemented.');
+		return { hasError: false, addressType, port, hostname, isUDP, rawClientData: chunk.subarray(addrValIdx + addrLen), type: 'vless', version: version };
 	}
 }
